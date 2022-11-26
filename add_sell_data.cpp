@@ -47,23 +47,23 @@ int main(int argc, char *argv[]) {
   }
   for (size_t i = 0; i < orig_list.size(); ++i) {
     cout << orig_list[i] << ",";
-    int bid = bid_list[i];
+    int ask = ask_list[i];
     int start_time = time_list[i];
     int result = 0;
     int result_time = -1;
     for (size_t j = i; j < orig_list.size(); ++j) {
-      if (ask_list[j] <= bid - width) {
+      if (ask_list[j] <= ask - width) {
         result = width;
         result_time = time_list[j];
         break;
       }
-      else if (ask_list[j] >= bid + width) {
+      else if (ask_list[j] >= ask + width) {
         result = -width;
         result_time = time_list[j];
         break;
       }
-      else if (time && time_list[j] >= start_time + time) {
-        result = bid - ask_list[j];
+      else if (time && (time_list[j] >= start_time + time)) {
+        result = ask - ask_list[j];
         result_time = time_list[j];
         break;
       }

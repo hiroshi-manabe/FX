@@ -8,7 +8,8 @@ use Digest::MD5;
 my @currency_list = qw(USDJPY);
 my $delay = 3;
 my $time_width = 60000;
-my $threshold = 10;
+my $scale_threshold = 4;
+my $freq_threshold = 20;
 my $temp_dir = "./stat_temp";
 
 sub main {
@@ -19,16 +20,13 @@ sub main {
         for my $i(0..255) {
             my $hex = sprintf("%02x", $i);
             $fp_dict{$hex}->{"file"} = "$temp_dir/$hex.csv";
-            open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die;
+            open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die $! ;
         }
         while (<$currency/weekly_past_data/week_*.csv>) {
-            my %processed_dict = ();
-            my $next_time = 0;
-            
+            my %wait_time_dict = ();
             m{week_(\d{3})};
-            next if $1 < 65 or $1 >= 522;
+            next if $1 >= 346;
             print "$_\n";
-            
             m{/([^/]+)$};
             my $filename = $1;
             my @data = ();
@@ -40,21 +38,21 @@ sub main {
             }
             close IN;
             for my $i(0..$#data) {
+                
                 if ($i >= $delay) {
-                    my $time = $data[$i-$delay]->[0];
-                    next if $time < $next_time;
-                    my $past = $data[$i-$delay]->[6];
+                    my $time = $data[$i-$delay-1]->[0];
+                    my $past = $data[$i-$delay-1]->[6];
                     next if $past eq "";
                     my ($result, $result_time) = split/:/, $data[$i]->[5];
                     next if $result_time == -1;
-                    if (exists $processed_dict{$past.$result_time}) {
+                    if ($time < $wait_time_dict{$past}) {
                         next;
                     }
                     else {
-                        my $hex = substr(Digest::MD5::md5_hex($past), 0, 2);
-                        print { $fp_dict{$hex}->{"fp"} } join(",", $past, $result, $result_time - $time)."\n";
-                        $processed_dict{$past.$result_time} = ();
-                        $next_time = $result_time;
+                        my ($scale, $bits) = split/:/, $past;
+                        my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
+                        print { $fp_dict{$hex}->{"fp"} } join(",", $past, $result.":".($result_time - $time))."\n";
+                        $wait_time_dict{$past} = $result_time;
                     }
                 }
             }
@@ -72,16 +70,20 @@ sub main {
             while (readline($fp_dict{$hex}->{"fp"})) {
                 chomp;
                 my @F = split/,/;
-                push @{$dict{$F[0]}}, [@F[1, 2]];
+                my $past = $F[0];
+                my $r = $F[1];
+                my ($scale, $bits) = split/:/, $past;
+                next if $scale < $scale_threshold;
+                push @{$dict{$bits}}, [$scale, $F[1]];
             }
             close $fp_dict{$hex}->{"fp"};
             for my $key(sort keys %dict) {
-                my $count = scalar @{$dict{$key}};
-                next if $count < $threshold;
-                my $sum;
-                $sum += $_->[0] for @{$dict{$key}};
-                next if $sum < 0;
-                print OUT join(",", $key, @{$_})."\n" for @{$dict{$key}};
+                my $freq = scalar @{$dict{$key}};
+                next if $freq < $freq_threshold;
+                for my $t(sort { $a->[0] <=> $b->[0]; } @{$dict{$key}}) {
+                    my ($scale, $r) = @{$t};
+                    print OUT "$scale:$key,$r\n";
+                }
             }
             unlink $fp_dict{$hex}->{"file"};
         }
