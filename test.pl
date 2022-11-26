@@ -89,12 +89,12 @@ sub main {
             print OUT "File total: score $score hit count $hit_count average score $avr\n";
             $hit_count_all += $hit_count;
             $score_all += $score;
-            print OUT "-" x 70."\N";
+            print OUT (("-" x 70)."\n");
         }
         my $avr_all = 0;
         $avr_all = $score_all / $hit_count_all if $hit_count_all;
         print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
-        print OUT "=" x 70."\n";
+        print OUT (("=" x 70)."\n");
     }
 }
 
