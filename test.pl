@@ -23,6 +23,7 @@ sub main {
     my $in_file = "$currency/$in_file_list[$sell_flag]";
     my ($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = localtime(time);
     my $out_file = sprintf("$currency/test_result_%04d%02d%02d_%02d%02d%02d.txt", $year + 1900, $mon + 1, $mday, $hour, $min, $sec);
+    print STDOUT "Output file: $out_file\n";
     
     open IN, "<", $in_file or die "$in_file: $!";
     my %features_all = ();
@@ -56,7 +57,7 @@ sub main {
             next;
         }
         for my $test_file(@test_files) {
-            print "File: $test_file\n";
+            print OUT "File: $test_file\n";
             my $score = 0;
             open IN, "<", $test_file or die "Cannot open: $test_file";
             my @data = ();
@@ -65,7 +66,7 @@ sub main {
                 chomp;
                 my @F = split/,/;
                 push @data, [@F];
-                next if scalar(@data) < $delay;
+                next if scalar(@data) <= $delay;
                 my $time = $F[0];
                 my $past = $data[-$delay-1]->[6];
                 my ($scale, $bits) = split/:/, $past;
@@ -74,7 +75,7 @@ sub main {
                     if ($scale >= $min_scale and $scale <= $max_scale) {
                         
                         my ($result, $result_time) = split/:/, $F[5];
-                        print "Hit: bits $bits, max scale $max_scale, min scale $min_scale scale $scale result $result\n";
+                        print OUT "Hit: bits $bits, max scale $max_scale, min scale $min_scale scale $scale result $result\n";
                         $score += $result;
                         $prev_time = $time;
                     }
@@ -93,7 +94,7 @@ sub filter_data {
     for my $key(keys %{$data_ref}) {
         my ($min_scale, $max_scale, $count, $result) = @{$data_ref->{$key}};
         $ret_ref->{$key} = [$min_scale, $max_scale, $count, $result] if $count >= $freq_threshold;
-    }p
+    }
     return $ret_ref;
 }
 
