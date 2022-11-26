@@ -50,6 +50,7 @@ sub main {
     OUT->autoflush;
     for my $test_pattern(@test_patterns) {
         print OUT "Test pattern: ".join(",", @{$test_pattern})."\n";
+        my $hit_count_all = 0;
         my $score_all = 0;
         my $data_ref = filter_data(\%features_all, $test_pattern);
         if (scalar(keys %{$data_ref}) == 0) {
@@ -59,6 +60,7 @@ sub main {
         for my $test_file(@test_files) {
             print OUT "File: $test_file\n";
             my $score = 0;
+            my $hit_count = 0;
             open IN, "<", $test_file or die "Cannot open: $test_file";
             my @data = ();
             my $prev_time = -99999;
@@ -76,14 +78,23 @@ sub main {
                         
                         my ($result, $result_time) = split/:/, $F[5];
                         print OUT "Hit: bits $bits, max scale $max_scale, min scale $min_scale scale $scale result $result\n";
+                        $hit_count++;
                         $score += $result;
                         $prev_time = $time;
                     }
                 }
             }
+            my $avr = 0;
+            $avr = $score / $hit_count if $hit_count;
+            print OUT "File total: score $score hit count $hit_count average score $avr\n";
+            $hit_count_all += $hit_count;
             $score_all += $score;
+            print OUT "-" x 70;
         }
-        print OUT join(",", $score_all)."\n";
+        my $avr_all = 0;
+        $avr_all = $score_all / $hit_count_all if $hit_count_all;
+        print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
+        print OUT "=" x 70;
     }
 }
 
