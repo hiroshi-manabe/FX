@@ -41,7 +41,7 @@ sub main {
         push @test_files, $_;
     }
     my @test_patterns;
-    for (my $freq = 200; $freq <= 500; $freq += 30) {
+    for (my $freq = 50; $freq <= 500; $freq += 50) {
         push @test_patterns, [$freq];
 
     }
@@ -77,7 +77,7 @@ sub main {
                     if ($scale >= $min_scale and $scale <= $max_scale) {
                         
                         my ($result, $result_time) = split/:/, $F[5];
-                        print OUT "Hit: bits $bits, max scale $max_scale, min scale $min_scale scale $scale result $result\n";
+                        print OUT "Hit: time $time bits $bits range $min_scale-$max_scale scale $scale result $result\n";
                         $hit_count++;
                         $score += $result;
                         $prev_time = $time;
