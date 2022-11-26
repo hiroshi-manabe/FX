@@ -17,7 +17,7 @@ my @out_dir_list = qw(stat.csv stat_sell.csv);
 sub main {
     my $sell_flag = 0;
     if (@ARGV) {
-        my $temp = shift;
+        my $temp = shift @ARGV;
         $sell_flag = 1 if $temp eq "sell";
     }
     my $temp_dir = File::Temp->newdir();
