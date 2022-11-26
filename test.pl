@@ -97,7 +97,7 @@ sub main {
         $avr_all = $score_all / $hit_count_all if $hit_count_all;
         print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
         for my $bits(keys %score_by_feature) {
-            print "bits $bits total score $score_by_feature{$bits}\n";
+            print OUT "bits $bits total score $score_by_feature{$bits}\n";
         }
         print OUT (("=" x 70)."\n");
     }
