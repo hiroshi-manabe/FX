@@ -48,10 +48,8 @@ sub main {
     }
     my @test_patterns;
     for (my $freq = 200; $freq <= 500; $freq += 30) {
-        for (my $feature_count = 2; $feature_count <= 10; $feature_count += 2) {
-            push @test_patterns, [$freq, $feature_count];
+        push @test_patterns, [$freq];
 
-        }
     }
 
     open OUT, ">", $out_file or die;
@@ -71,7 +69,7 @@ sub main {
             my @data = ();
             my @scores = ();
             my $prev_time = -99999;
-            while (<IN>) {
+n            while (<IN>) {
                 chomp;
                 my @F = split/,/;
                 push @data, [@F];
@@ -121,54 +119,6 @@ sub filter_data {
         $ret_ref->{$key} = $temp_avr_dict{$key};
         $count++;
         last if $count >= $feature_count;
-    }
-    return $ret_ref;
-}
-
-sub process_data {
-    my ($data_all_ref, $min_count, $min_profit) = @_;
-    my $ret_ref = {};
-    my $sum;
-    my $count;
-    my %sum_dict;
-    my %count_dict;
-    my $prev_bits;
-    for my $data_ref(@{$data_all_ref}, [0, "", "", 0]) {
-        my ($scale, $bits, $result, undef) = @{$data_ref};
-        if ($prev_bits ne "" and $bits ne $prev_bits) {
-            my $count_all = sum(map { $count_dict{$_} } keys %count_dict);
-            if ($count_all >= $min_count) {
-                my %sum_count_dict;
-                my $has_profit = 0;
-                for my $s(keys %sum_dict) {
-                    $sum_count_dict{$s} = [$sum_dict{$s}, $count_dict{$s}];
-                    $has_profit = 1 if $sum_dict{$s} / $count_dict{$s} >= $min_profit;
-                }
-                if ($has_profit) {
-                    my @scale_list = sort {$a<=>$b} keys %sum_count_dict;
-                    my @best_params;
-                    my $best_profit = 0;
-                    for (my $i = 0; $i < scalar(@scale_list); ++$i) {
-                        for (my $j = $i + 1; $j <= scalar(@scale_list); ++$j) {
-                            my $profit = sum(map { $_->[0]; } @sum_count_dict{@scale_list[$i..$j-1]});
-                            my $count = sum(map { $_->[1]; } @sum_count_dict{@scale_list[$i..$j-1]});
-                            next if $profit / $count < $min_profit;
-                            if ($profit > $best_profit) {
-                                $best_profit = $profit;
-                                @best_params = ($scale_list[$i], $scale_list[$j-1], $count);
-                            }
-                        }
-                    }
-                    $ret_ref->{$prev_bits} = [@best_params] if $best_profit > 0;
-                }
-            }
-            %sum_dict = ();
-            %count_dict = ();
-            $count_all = 0;
-        }
-        $sum_dict{$scale} += $result;
-        $count_dict{$scale}++;
-        $prev_bits = $bits;
     }
     return $ret_ref;
 }

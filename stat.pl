@@ -4,17 +4,23 @@ use utf8;
 use open IO => ":utf8", ":std";
 
 use Digest::MD5;
+use File::Temp;
 
 my @currency_list = qw(USDJPY);
 my $delay = 3;
 my $time_width = 60000;
 my $scale_threshold = 4;
 my $freq_threshold = 20;
-my $temp_dir = "./stat_temp";
+my @in_dir_list = qw(weekly_past_data weekly_past_sell_data);
+my @out_dir_list = qw(stat.csv stat_sell.csv);
 
 sub main {
-    mkdir $temp_dir if not -d $temp_dir;
-    die "Cannot mkdir: $temp_dir" if not -d $temp_dir;
+    my $sell_flag = 0;
+    if (@ARGV) {
+        my $temp = shift;
+        $sell_flag = 1 if $temp eq "sell";
+    }
+    my $temp_dir = File::Temp->newdir();
     for my $currency(@currency_list) {
         my %fp_dict;
         for my $i(0..255) {
@@ -22,7 +28,7 @@ sub main {
             $fp_dict{$hex}->{"file"} = "$temp_dir/$hex.csv";
             open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die $! ;
         }
-        while (<$currency/weekly_past_data/week_*.csv>) {
+        while (<$currency/$in_dir_list[$sell_flag]/week_*.csv>) {
             my %wait_time_dict = ();
             m{week_(\d{3})};
             next if $1 >= 346;
@@ -62,7 +68,7 @@ sub main {
             close $fp_dict{$hex}->{"fp"};
         }
         
-        open OUT, ">", "$currency/stat.csv";
+        open OUT, ">", "$currency/$out_dir_list[$sell_flag]";
         for my $i(0..255) {
             my $hex = sprintf("%02x", $i);
             open $fp_dict{$hex}->{"fp"}, "<", $fp_dict{$hex}->{"file"} or die;
@@ -89,7 +95,6 @@ sub main {
         }
         close OUT;
     }
-    rmdir $temp_dir;
 }
 
 main();
