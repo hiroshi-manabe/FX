@@ -22,7 +22,7 @@ sub main() {
             mkdir $dir_to_write if not -d $dir_to_write;
             my $file_to_write_temp = $file_to_write;
             $file_to_write_temp .= ".tmp";
-            my $cmd = qq{./add_past_sell_data $bit_width $time_width $bit_height < $_ > $file_to_write_temp};
+            my $cmd = qq{./add_past_data $bit_width $time_width $bit_height < $_ > $file_to_write_temp};
             print "$cmd\n";
             system $cmd;
             my $cmd = qq{mv $file_to_write_temp $file_to_write};
