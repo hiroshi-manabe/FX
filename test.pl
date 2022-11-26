@@ -7,7 +7,7 @@ use IO::Handle;
 use List::Util qq(sum);
 
 my $currency = "USDJPY";
-my @in_file_list = qw(stat.csv stat_sell.csv);
+my @in_file_list = qw(features.csv features_sell.csv);
 
 my $delay = 3;
 my $time_width = 60000;
@@ -93,7 +93,7 @@ sub filter_data {
     for my $key(keys %{$data_ref}) {
         my ($min_scale, $max_scale, $count, $result) = @{$data_ref->{$key}};
         $ret_ref->{$key} = [$min_scale, $max_scale, $count, $result] if $count >= $freq_threshold;
-    }
+    }p
     return $ret_ref;
 }
 
