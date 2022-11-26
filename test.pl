@@ -53,6 +53,7 @@ sub main {
         my $hit_count_all = 0;
         my $score_all = 0;
         my $data_ref = filter_data(\%features_all, $test_pattern);
+        my %score_by_feature = ();
         if (scalar(keys %{$data_ref}) == 0) {
             print OUT join(",", 0, 0, 0)."\n";
             next;
@@ -78,6 +79,7 @@ sub main {
                         
                         my ($result, $result_time) = split/:/, $F[5];
                         print OUT "Hit: time $time bits $bits range $min_scale-$max_scale scale $scale result $result\n";
+                        $score_by_feature{$bits} += $result;
                         $hit_count++;
                         $score += $result;
                         $prev_time = $time;
@@ -94,6 +96,9 @@ sub main {
         my $avr_all = 0;
         $avr_all = $score_all / $hit_count_all if $hit_count_all;
         print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
+        for my $bits(keys %score_by_feature) {
+            print "bits $bits total score $score_by_feature{$bits}\n";
+        }
         print OUT (("=" x 70)."\n");
     }
 }
