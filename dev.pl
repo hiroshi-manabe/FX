@@ -22,7 +22,7 @@ sub main {
     }
     my $in_file = "$currency/$in_file_list[$sell_flag]";
     my ($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = localtime(time);
-    my $out_file = sprintf("$currency/test_result_%04d%02d%02d_%02d%02d%02d.txt", $year + 1900, $mon + 1, $mday, $hour, $min, $sec);
+    my $out_file = sprintf("$currency/dev_result_%04d%02d%02d_%02d%02d%02d.txt", $year + 1900, $mon + 1, $mday, $hour, $min, $sec);
     print STDOUT "Output file: $out_file\n";
     
     open IN, "<", $in_file or die "$in_file: $!";
