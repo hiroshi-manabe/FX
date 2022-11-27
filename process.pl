@@ -45,6 +45,7 @@ sub main {
         }
         $prev_bits = $bits;
     }
+    close OUT;
 }
 
 main();

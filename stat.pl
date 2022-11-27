@@ -25,7 +25,7 @@ sub main {
     for my $i(0..255) {
         my $hex = sprintf("%02x", $i);
         $fp_dict{$hex}->{"file"} = "$temp_dir/$hex.csv";
-        open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die $! ;
+        open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die qq{$fp_dict{$hex}->{"file"}: $!} ;
     }
     while (<$currency/$in_dir_list[$sell_flag]/week_*.csv>) {
         my %wait_time_dict = ();
@@ -35,7 +35,7 @@ sub main {
         m{/([^/]+)$};
         my $filename = $1;
         my @data = ();
-        open IN, "<", $_ or die;
+        open IN, "<", $_ or die "$_: $!";
         while (<IN>) {
             chomp;
             my @F = split /,/;
@@ -67,10 +67,10 @@ sub main {
         close $fp_dict{$hex}->{"fp"};
     }
     
-    open OUT, ">", "$currency/$out_dir_list[$sell_flag]";
+    open OUT, ">", "$currency/$out_dir_list[$sell_flag]" or die qq{"$currency/$out_dir_list[$sell_flag]: $!};
     for my $i(0..255) {
         my $hex = sprintf("%02x", $i);
-        open $fp_dict{$hex}->{"fp"}, "<", $fp_dict{$hex}->{"file"} or die;
+        open $fp_dict{$hex}->{"fp"}, "<", $fp_dict{$hex}->{"file"} or die qq{$fp_dict{$hex}->{"file"}: $!};
         my %dict = ();
         while (readline($fp_dict{$hex}->{"fp"})) {
             chomp;

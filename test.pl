@@ -98,14 +98,16 @@ sub main {
         my $avr_all = 0;
         $avr_all = $score_all / $hit_count_all if $hit_count_all;
         print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
-        for my $bits(keys %score_by_feature) {
+        for my $bits(keys %{$data_ref}) {
             my $score = $score_by_feature{$bits};
             my $count = $count_by_feature{$bits};
-            my $avr = $score / $count;
+            my $avr = 0;
+            $avr = $score / $count if $count;
             print OUT "bits $bits score $score count $count average $avr\n";
         }
         print OUT (("=" x 70)."\n");
     }
+    close OUT;
 }
 
 sub filter_data {
