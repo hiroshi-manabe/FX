@@ -103,7 +103,8 @@ sub main {
             my $count = $count_by_feature{$bits};
             my $avr = 0;
             $avr = $score / $count if $count;
-            print OUT "bits $bits score $score count $count average $avr\n";
+            my ($min_scale, $max_scale, undef, $undef) = @{$data_ref->{$bits}};
+            print OUT "$min_scale-$max_scale:$bits score $score count $count average $avr\n";
         }
         print OUT (("=" x 70)."\n");
     }
