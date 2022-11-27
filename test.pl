@@ -37,11 +37,11 @@ sub main {
     my @test_files;
     while (<$currency/weekly_past_data/week_*.csv>) {
         m{week_(\d{3})};
-        next if $1 < 346;
+        next if $1 < 346 or $1 == 358;
         push @test_files, $_;
     }
     my @test_patterns;
-    for (my $freq = 50; $freq <= 500; $freq += 50) {
+    for (my $freq = 50; $freq <= 100; $freq += 10) {
         push @test_patterns, [$freq];
 
     }
@@ -54,6 +54,7 @@ sub main {
         my $score_all = 0;
         my $data_ref = filter_data(\%features_all, $test_pattern);
         my %score_by_feature = ();
+        my %count_by_feature = ();
         if (scalar(keys %{$data_ref}) == 0) {
             print OUT join(",", 0, 0, 0)."\n";
             next;
@@ -80,6 +81,7 @@ sub main {
                         my ($result, $result_time) = split/:/, $F[5];
                         print OUT "Hit: time $time bits $bits range $min_scale-$max_scale scale $scale result $result\n";
                         $score_by_feature{$bits} += $result;
+                        $count_by_feature{$bits}++;
                         $hit_count++;
                         $score += $result;
                         $prev_time = $time;
@@ -97,7 +99,10 @@ sub main {
         $avr_all = $score_all / $hit_count_all if $hit_count_all;
         print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
         for my $bits(keys %score_by_feature) {
-            print OUT "bits $bits total score $score_by_feature{$bits}\n";
+            my $score = $score_by_feature{$bits};
+            my $count = $count_by_feature{$bits};
+            my $avr = $score / $count;
+            print OUT "bits $bits score $score count $count average $avr\n";
         }
         print OUT (("=" x 70)."\n");
     }

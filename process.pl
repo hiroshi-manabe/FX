@@ -29,9 +29,11 @@ sub main {
         chomp;
         my ($scale, $bits, $result, undef) = split/[:,]/;
         if ($prev_bits ne "" and $bits ne $prev_bits) {
-            my $avr = $sum / $count;
-            if ($count >= $min_count and $avr > $min_profit) {
-                print OUT "$min_scale-$max_scale:$prev_bits,$count,$avr\n";
+            if ($count) {
+                my $avr = $sum / $count;
+                if ($count >= $min_count and $avr > $min_profit) {
+                    print OUT "$min_scale-$max_scale:$prev_bits,$count,$avr\n";
+                }
             }
             $sum = 0;
             $count = 0;
