@@ -10,6 +10,7 @@ use MIME::Base64;
 sub main() {
     die "command <bit_width> <time_width> <bit_height> <overwrite>" if @ARGV != 4;
     my ($bit_width, $time_width, $bit_height, $overwrite) = @ARGV;
+    my $currency;
     while (<currency_??????>) {
         m{currency_(.{6})};
         $currency = $1;

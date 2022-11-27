@@ -6,7 +6,6 @@ use open IO => ":utf8", ":std";
 use Digest::MD5;
 use File::Temp;
 
-my $currency = "USDJPY";
 my $delay = 3;
 my $time_width = 60000;
 my $scale_threshold = 4;
@@ -15,6 +14,11 @@ my @in_dir_list = qw(weekly_past_data weekly_past_sell_data);
 my @out_dir_list = qw(stat.csv stat_sell.csv);
 
 sub main {
+    my $currency;
+    while (<currency_??????>) {
+        m{currency_(.{6})};
+        $currency = $1;
+    }
     my $sell_flag = 0;
     if (@ARGV) {
         my $temp = shift @ARGV;

@@ -8,12 +8,16 @@ use List::Util qq(sum);
 
 my ($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = localtime(time);
 
-my $currency = "USDJPY";
 my @in_file_list = qw(stat.csv stat_sell.csv);
 my @out_file_list = qw(features.csv features_sell.csv);
 
 sub main {
     die "$0 <min_scale> <max_scale> <min_count> <min_profit> [sell]" if @ARGV < 4 or @ARGV > 5;
+    my $currency;
+    while (<currency_??????>) {
+        m{currency_(.{6})};
+        $currency = $1;
+    }
     my ($min_scale, $max_scale, $min_count, $min_profit, $flag) = @ARGV;
     my $sell_flag = 0;
     $sell_flag = 1 if $flag eq "sell";

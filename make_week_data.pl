@@ -13,7 +13,8 @@ sub main() {
         m{currency_(.{6})};
         $currency = $1;
     }
-    
+    die "$currency: Not found" if not -d $currency;
+    mkdir "$currency/weekly" if not -d "$currency/weekly";
     my $first_year = 116;
     my $first_mon = 0;
     my $first_day = 4;
