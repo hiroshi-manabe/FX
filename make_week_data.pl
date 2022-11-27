@@ -8,7 +8,11 @@ use Time::Local qw(timegm);
 sub main() {
     my $min_window_width = 200;
     my $bet = 60;
-    my $currency = "USDJPY";
+    my $currency;
+    while (<currency_??????>) {
+        m{currency_(.{6})};
+        $currency = $1;
+    }
     
     my $first_year = 116;
     my $first_mon = 0;
