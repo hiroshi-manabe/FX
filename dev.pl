@@ -6,7 +6,6 @@ use open IO => ":utf8", ":std";
 use IO::Handle;
 use List::Util qq(sum);
 
-my $currency = "USDJPY";
 my @in_file_list = qw(features.csv features_sell.csv);
 
 my $delay = 3;
@@ -15,6 +14,11 @@ my $min_count = 20;
 my $min_profit = 5;
 
 sub main {
+    my $currency;
+    while (<currency_??????>) {
+        m{currency_(.{6})};
+        $currency = $1;
+    }
     my $sell_flag = 0;
     if (@ARGV) {
         my $temp = shift @ARGV;
@@ -37,11 +41,11 @@ sub main {
     my @test_files;
     while (<$currency/weekly_past_data/week_*.csv>) {
         m{week_(\d{3})};
-        next if $1 < 346 or $1 == 358;
+        next if $1 < 344 or $1 > 355;
         push @test_files, $_;
     }
     my @test_patterns;
-    for (my $freq = 50; $freq <= 100; $freq += 10) {
+    for (my $freq = 50; $freq <= 150; $freq += 10) {
         push @test_patterns, [$freq];
 
     }

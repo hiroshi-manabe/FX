@@ -34,7 +34,7 @@ sub main {
     while (<$currency/$in_dir_list[$sell_flag]/week_*.csv>) {
         my %wait_time_dict = ();
         m{week_(\d{3})};
-        next if $1 >= 346;
+        next if $1 >= 344;
         print "$_\n";
         m{/([^/]+)$};
         my $filename = $1;
