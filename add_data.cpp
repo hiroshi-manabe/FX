@@ -26,7 +26,6 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < n; ++i) {
     stringstream(argv[i * 2 + 1]) >> widths[i];
     stringstream(argv[i * 2 + 2]) >> times[i];
-
   }
   
   string str;
@@ -56,7 +55,7 @@ int main(int argc, char *argv[]) {
     int results[10] = {0};
     int result_times[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     for (size_t j = 0; j < n; ++j) {
-      for (size_t k = i; k < orig_list.size(); ++j) {
+      for (size_t k = i; k < orig_list.size(); ++k) {
         if (ask_list[k] >= ask + widths[j]) {
           results[j] = widths[j];
           result_times[j] = time_list[k];
