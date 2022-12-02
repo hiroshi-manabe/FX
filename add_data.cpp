@@ -15,15 +15,19 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc != 3) {
+  if (argc < 3 || argc > 21 || argc % 2 == 0) {
     exit(-1);
   }
-
-  int width;
-  int time;
   
-  stringstream(argv[1]) >> width;
-  stringstream(argv[2]) >> time;
+  int n = (argc - 1) / 2;
+  int widths[10] = {0};
+  int times[10] = {0};
+
+  for (int i = 0; i < n; ++i) {
+    stringstream(argv[i * 2 + 1]) >> widths[i];
+    stringstream(argv[i * 2 + 2]) >> times[i];
+
+  }
   
   string str;
   vector<string> orig_list;
@@ -49,26 +53,33 @@ int main(int argc, char *argv[]) {
     cout << orig_list[i] << ",";
     int ask = ask_list[i];
     int start_time = time_list[i];
-    int result = 0;
-    int result_time = -1;
-    for (size_t j = i; j < orig_list.size(); ++j) {
-      if (ask_list[j] >= ask + width) {
-        result = width;
-        result_time = time_list[j];
-        break;
-      }
-      else if (ask_list[j] <= ask - width) {
-        result = -width;
-        result_time = time_list[j];
-        break;
-      }
-      else if (time && (time_list[j] >= start_time + time)) {
-        result = ask_list[j] - ask;
-        result_time = time_list[j];
-        break;
+    int results[10] = {0};
+    int result_times[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    for (size_t j = 0; j < n; ++j) {
+      for (size_t k = i; k < orig_list.size(); ++j) {
+        if (ask_list[k] >= ask + widths[j]) {
+          results[j] = widths[j];
+          result_times[j] = time_list[k];
+          break;
+        }
+        else if (ask_list[k] <= ask - widths[j]) {
+          results[j] = -widths[j];
+          result_times[j] = time_list[k];
+          break;
+        }
+        else if (times[j] && (time_list[k] >= start_time + times[j])) {
+          results[j] = ask_list[k] - ask;
+          result_times[j] = time_list[k];
+          break;
+        }
       }
     }
-    cout << result << ":" << result_time;
+    for (size_t i = 0; i < n; ++i) {
+      cout << results[i] << ":" << result_times[i];
+      if (i < n - 1) {
+        cout << "/";
+      }
+    }
     cout << "\n";
   }
 }
