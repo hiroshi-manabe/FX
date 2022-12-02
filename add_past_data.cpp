@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   stringstream(argv[1]) >> bit_width;
   stringstream(argv[2]) >> bit_height;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[2 + i]) >> time_widths[i];
+    stringstream(argv[3 + i]) >> time_widths[i];
     time_factors[i] = time_widths[i] / bit_width;
   }
 
