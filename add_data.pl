@@ -4,7 +4,7 @@ use utf8;
 use open IO => ":utf8", ":std";
 
 sub main() {
-    die "command <width> <time> ..." if @ARGV < 3 or @ARGV % 2 == 0;
+    die "command <width> <time> ..." if @ARGV < 3 or @ARGV % 2 != 0;
     my $arg_str = join(" ", @ARGV);
     my $currency;
     while (<currency_??????>) {
