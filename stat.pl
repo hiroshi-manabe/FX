@@ -50,9 +50,15 @@ sub main {
             
             if ($i >= $delay) {
                 my $time = $data[$i-$delay-1]->[0];
-                my $past = $data[$i-$delay-1]->[6];
+                my $result_str = $data[$i]->[5];
+                my $c;
+                $c = 0;
+                my @results = map { [$c++, split/:/]; } split m{/}, $result_str;
+                
+                my $past_str = $data[$i-$delay-1]->[6];
+                $c = 0;
+                my @pasts = map { [$c++, split/:/] } split m{/}, $result_str;
                 next if $past eq "";
-                my ($result, $result_time) = split/:/, $data[$i]->[5];
                 next if $result_time == -1;
                 if ($time < $wait_time_dict{$past}) {
                     next;
@@ -83,7 +89,7 @@ sub main {
             my $r = $F[1];
             my ($scale, $bits) = split/:/, $past;
             next if $scale < $scale_threshold;
-            push @{$dict{$bits}}, [$scale, $F[1]];
+             push @{$dict{$bits}}, [$scale, $F[1]];
         }
         close $fp_dict{$hex}->{"fp"};
         for my $key(sort keys %dict) {

@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < orig_list.size(); ++i) {
     cout << orig_list[i] << ",";
     for (int j = 0; j < n; ++j) {
+      cout << time_widths[j] << ":";
       int cur_time = time_list[i];
       if (cur_time >= time_widths[j] - 1) {
         int start_time = cur_time - time_widths[j] + 1;
@@ -105,9 +106,16 @@ int main(int argc, char *argv[]) {
           snprintf(buf, 3, "%02x", bits[k]);
           cout << buf;
         }
-        if (j < n - 1) {
-          cout << "/";
+      }
+      else {
+        cout << 0 << ":";
+        const char buf[3] = "ff";
+        for (int k = 0; k < byte_count; ++k) {
+          cout << buf;
         }
+      }
+      if (j < n - 1) {
+        cout << "/";
       }
     }
     cout << "\n";

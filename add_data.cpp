@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
       }
     }
     for (size_t i = 0; i < n; ++i) {
-      cout << results[i] << ":" << result_times[i];
+      cout << times[i] << ":" << results[i] << ":" << result_times[i];
       if (i < n - 1) {
         cout << "/";
       }
