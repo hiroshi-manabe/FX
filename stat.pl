@@ -10,8 +10,8 @@ my $delay = 3;
 my $time_width = 60000;
 my $scale_threshold = 4;
 my $freq_threshold = 20;
-my @in_dir_list = qw(weekly_past_data weekly_past_sell_data);
-my @out_dir_list = qw(stat.csv stat_sell.csv);
+my $in_dir = "weekly_past_data";
+my @out_file_list = qw(stat_%d.csv stat_sell_%d.csv);
 
 sub main {
     my $currency;
@@ -31,10 +31,12 @@ sub main {
         $fp_dict{$hex}->{"file"} = "$temp_dir/$hex.csv";
         open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die qq{$fp_dict{$hex}->{"file"}: $!} ;
     }
-    while (<$currency/$in_dir_list[$sell_flag]/week_*.csv>) {
+    my %times_dict = ();
+    while (<$currency/$in_dir/week_*.csv>) {
         my %wait_time_dict = ();
         m{week_(\d{3})};
         next if $1 >= 344;
+#        next if $1 >= 1;
         print "$_\n";
         m{/([^/]+)$};
         my $filename = $1;
@@ -47,37 +49,43 @@ sub main {
         }
         close IN;
         for my $i(0..$#data) {
-            
             if ($i >= $delay) {
                 my $time = $data[$i-$delay-1]->[0];
                 my $result_str = $data[$i]->[5];
-                my $c;
-                $c = 0;
-                my @results = map { [$c++, split/:/]; } split m{/}, $result_str;
-                
+                my %result_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $result_str);
                 my $past_str = $data[$i-$delay-1]->[6];
-                $c = 0;
-                my @pasts = map { [$c++, split/:/] } split m{/}, $result_str;
-                next if $past eq "";
-                next if $result_time == -1;
-                if ($time < $wait_time_dict{$past}) {
+                my %past_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $past_str);
+                
+                if ($time < $wait_time_dict{$past_str}) {
                     next;
                 }
                 else {
-                    my ($scale, $bits) = split/:/, $past;
-                    my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
-                    print { $fp_dict{$hex}->{"fp"} } join(",", $past, $result.":".($result_time - $time))."\n";
-                    $wait_time_dict{$past} = $result_time;
+                    for my $key(keys %result_dict) {
+                        $times_dict{$key} = ();
+                        my ($scale, $bits) = @{$past_dict{$key}};
+                        my ($result_score, $result_time)  = @{$result_dict{$key}};
+                        my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
+                        next if $scale == 0 or $result_score == -1;
+                        print { $fp_dict{$hex}->{"fp"} } join(",", join(":", $key, $scale, $bits), $result_score)."\n";
+                        $wait_time_dict{$past_str} = $result_time;
+                    }
                 }
             }
         }
     }
+    
     for my $i(0..255) {
         my $hex = sprintf("%02x", $i);
         close $fp_dict{$hex}->{"fp"};
     }
     
-    open OUT, ">", "$currency/$out_dir_list[$sell_flag]" or die qq{"$currency/$out_dir_list[$sell_flag]: $!};
+    my %fp_dict_out;
+    for my $time(keys %times_dict) {
+        my $out_file = sprintf("$currency/$out_file_list[$sell_flag]", $time);;
+        $fp_dict{$time}->{"file"} = $out_file;
+        open $fp_dict_out{$time}->{"fp"}, ">", $out_file or die qq{$out_file: $!};
+    }
+    
     for my $i(0..255) {
         my $hex = sprintf("%02x", $i);
         open $fp_dict{$hex}->{"fp"}, "<", $fp_dict{$hex}->{"file"} or die qq{$fp_dict{$hex}->{"file"}: $!};
@@ -86,23 +94,37 @@ sub main {
             chomp;
             my @F = split/,/;
             my $past = $F[0];
-            my $r = $F[1];
-            my ($scale, $bits) = split/:/, $past;
+            my $result = $F[1];
+            my ($time, $scale, $bits) = split/:/, $past;
             next if $scale < $scale_threshold;
-             push @{$dict{$bits}}, [$scale, $F[1]];
+            push @{$dict{$time}->{$bits}}, [$scale, $result];
         }
         close $fp_dict{$hex}->{"fp"};
-        for my $key(sort keys %dict) {
-            my $freq = scalar @{$dict{$key}};
-            next if $freq < $freq_threshold;
-            for my $t(sort { $a->[0] <=> $b->[0]; } @{$dict{$key}}) {
-                my ($scale, $r) = @{$t};
-                print OUT "$scale:$key,$r\n";
+        for my $time(sort { $a <=> $b }  keys %dict) {
+            for my $key(sort keys %{$dict{$time}}) {
+                my $freq = scalar @{$dict{$time}->{$key}};
+                next if $freq < $freq_threshold;
+                my $prev_scale = 0;
+                my $sum = 0;
+                my $count = 0;
+                for my $t((sort { $a->[0] <=> $b->[0]; } @{$dict{$time}->{$key}}), [0, 0]) {
+                    my ($scale, $r) = @{$t};
+                    if ($prev_scale and $scale != $prev_scale) {
+                        my $avr = $sum / $count;
+                        print { $fp_dict_out{$time}->{"fp"} } "$time:$scale:$key,$count,$avr\n";
+                        $sum = 0;
+                        $count = 0;
+                    }
+                    $sum += $r;
+                    $count++;
+                    $prev_scale = $scale;
+                }
             }
         }
-        unlink $fp_dict{$hex}->{"file"};
     }
-    close OUT;
+    for my $time(keys %times_dict) {
+        close $fp_dict_out{$time}->{"fp"};
+    }
 }
 
 main();
