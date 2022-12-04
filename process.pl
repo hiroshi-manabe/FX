@@ -30,14 +30,26 @@ sub main {
     my $count;
     my $prev_bits;
     my @list;
-    while ($_ = (<IN> or "0:xxx,0:0")) {
+    while ($_ = (<IN> or "0:0:xxx,0:0")) {
         chomp;
         my ($time, $scale, $bits, $c, $avr, undef) = split/[:,]/;
         if ($prev_bits ne "" and $bits ne $prev_bits) {
             if ($count) {
-                my $avr = $sum / $count;
-                if ($count >= $min_count and $avr > $min_profit) {
-                    print OUT for @list;
+                my $flag_ok = 0;
+              LOOP:
+                for (my $i = 0; $i < scalar(@list); ++$i) {
+                    for (my $j = $i; $j < scalar(@list); ++$j) {
+                        my $count_all = List::Util::sum(map { $_->[0] } @list[$i..$j]);
+                        my $score_all = List::Util::sum(map { $_->[0] * $_->[1] } @list[$i..$j]);
+                        my $avr_all = $score_all / $count_all;
+                        if ($count_all >= $min_count and ((not $sell_flag and $avr_all >= $min_profit) or ($sell_flag and $avr_all <= -$min_profit))) {
+                            $flag_ok = 1;
+                            last;
+                        }
+                    }
+                }
+                if ($flag_ok) {
+                    print "$_\n" for map { $_->[2]; } @list;
                 }
             }
             $sum = 0;
@@ -46,9 +58,7 @@ sub main {
         }
         last if $bits eq "xxx";
         if ($scale >= $min_scale and $scale <= $max_scale) {
-            push @list, $_;
-            $sum += $c * $avr;
-            $count += $c;
+            push @list, [$c, $avr, $_];
         }
         $prev_bits = $bits;
     }
