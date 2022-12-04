@@ -36,7 +36,8 @@ sub main() {
             my $cur_path = sprintf("$currency/%04d/%02d/%02d/%02dh_ticks.csv", $cur_year + 1900, $cur_mon, $cur_day, $cur_hour);
             if (not $found_flag and -s $cur_path) {
                 print STDERR "Found: $cur_path\n";
-                open OUT, ">", sprintf("$currency/weekly/week_%03d_%04d%02d%02d.csv", $week_index++, $cur_year + 1900, $cur_mon, $cur_day);
+                my $file = sprintf("$currency/weekly/week_%03d_%04d%02d%02d.csv", $week_index++, $cur_year + 1900, $cur_mon, $cur_day);
+                open OUT, ">", $file or "$file: $!";
                 $found_flag = 1;
             }
             if ($found_flag and not -s $cur_path) {
