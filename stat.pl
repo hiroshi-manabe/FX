@@ -7,11 +7,11 @@ use Digest::MD5;
 use File::Temp;
 
 my $delay = 3;
-my $time_width = 60000;
+my %times_dict = (120000 => (), 240000 => ());
 my $scale_threshold = 4;
 my $freq_threshold = 20;
 my $in_dir = "weekly_past_data";
-my @out_file_list = qw(stat_%d.csv stat_sell_%d.csv);
+my $out_file_format = "stat_%d.csv";
 
 sub main {
     my $currency;
@@ -31,11 +31,10 @@ sub main {
         $fp_dict{$hex}->{"file"} = "$temp_dir/$hex.csv";
         open $fp_dict{$hex}->{"fp"}, ">", $fp_dict{$hex}->{"file"} or die qq{$fp_dict{$hex}->{"file"}: $!} ;
     }
-    my %times_dict = ();
     while (<$currency/$in_dir/week_*.csv>) {
         my %wait_time_dict = ();
         m{week_(\d{3})};
-        next if $1 >= 344;
+        next if $1 <= 313 or $1 >= 358;
 #        next if $1 >= 1;
         print "$_\n";
         m{/([^/]+)$};
@@ -60,8 +59,8 @@ sub main {
                     next;
                 }
                 else {
-                    for my $key(keys %result_dict) {
-                        $times_dict{$key} = ();
+                    for my $key(keys %times_dict) {
+                        die "$key not exist: $$key" if not exists $result_dict{$key};
                         my ($scale, $bits) = @{$past_dict{$key}};
                         my ($result_score, $result_time)  = @{$result_dict{$key}};
                         my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
@@ -81,7 +80,7 @@ sub main {
     
     my %fp_dict_out;
     for my $time(keys %times_dict) {
-        my $out_file = sprintf("$currency/$out_file_list[$sell_flag]", $time);;
+        my $out_file = sprintf("$currency/$out_file_format", $time);;
         $fp_dict{$time}->{"file"} = $out_file;
         open $fp_dict_out{$time}->{"fp"}, ">", $out_file or die qq{$out_file: $!};
     }
