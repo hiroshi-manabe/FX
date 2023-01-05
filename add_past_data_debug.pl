@@ -22,8 +22,17 @@ sub main() {
     }
     close IN;
 
+    my $movement_width = 300000;
+    my $movement = 0;
+    my $movement_start_index = 0;
     for (my $i = 0; $i < scalar(@orig_list); ++$i) {
+        my $str_to_print = $orig_list[$i].",$movement,";
         my $cur_time = $time_list[$i];
+        $movement += abs($price_list[$i] - $price_list[$i-1]) if $i > 0;
+        while ($time_list[$i] - $movement_width > $time_list[$movement_start_index]) {
+            $movement_start_index++;
+            $movement -= abs($price_list[$movement_start_index] - $price_list[$movement_start_index-1]);
+        }
         if ($cur_time >= $time_width - 1) {
             my $start_time = $cur_time - $time_width + 1;
             my $cur_price = $price_list[$i];
@@ -66,8 +75,10 @@ sub main() {
                 }
             }
             my $hex = unpack("H*", $bits);
+            $str_to_print .= "$price_factor:$hex";
 #            print $hex."\n";
         }
+        print "$str_to_print\n";
     }
 }
 

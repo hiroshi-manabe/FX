@@ -15,17 +15,17 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 3 || argc > 21 || argc % 2 == 0) {
+  if (argc < 3 || argc > 12) {
     exit(-1);
   }
   
-  int n = (argc - 1) / 2;
-  int widths[10] = {0};
+  int n = argc - 2;
+  int width = 0;
   int times[10] = {0};
 
+  stringstream(argv[1]) >> width;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[i * 2 + 1]) >> widths[i];
-    stringstream(argv[i * 2 + 2]) >> times[i];
+    stringstream(argv[i + 2]) >> times[i];
   }
   
   string str;
@@ -56,13 +56,13 @@ int main(int argc, char *argv[]) {
     int result_times[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     for (size_t j = 0; j < n; ++j) {
       for (size_t k = i; k < orig_list.size(); ++k) {
-        if (ask_list[k] >= ask + widths[j]) {
-          results[j] = widths[j];
+        if (ask_list[k] >= ask + width) {
+          results[j] = width;
           result_times[j] = time_list[k];
           break;
         }
-        else if (ask_list[k] <= ask - widths[j]) {
-          results[j] = -widths[j];
+        else if (ask_list[k] <= ask - width) {
+          results[j] = -width;
           result_times[j] = time_list[k];
           break;
         }

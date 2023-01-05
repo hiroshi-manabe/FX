@@ -35,8 +35,8 @@ sub main {
         my ($time, $scale, $bits, $c, $avr, undef) = split/[:,]/;
         if ($prev_bits ne "" and $bits ne $prev_bits) {
             if (@list) {
-                my $flag_ok = 0;
-                my ($ok_i, $ok_j) = (0, 0);
+                my ($max_i, $max_j) = (0, 0);
+                my $max = 0;
               LOOP:
                 for (my $i = 0; $i < scalar(@list); ++$i) {
                     next if $list[$i]->[2] > 25; # magic number!
@@ -45,27 +45,33 @@ sub main {
                         next if $list[$j]->[2] > 50;
                         
                         my $count_all = List::Util::sum(map { $_->[0] } @list[$i..$j]);
-                        my $score_all = List::Util::sum(map { $_->[0] * $_->[1] } @list[$i..$j]);
-                        
+                        my $score_all = (List::Util::sum(map { $_->[0] * $_->[1] } @list[$i..$j])) * ($sell_flag ? -1 : 1);
+                        next if $count_all == 0;
                         my $avr_all = $score_all / $count_all;
-                        if ($count_all >= $min_count and ((not $sell_flag and $avr_all >= $min_profit) or ($sell_flag and $avr_all <= -$min_profit))) {
-                            ($ok_i, $ok_j) = ($i, $j);
-                            $flag_ok = 1;
-                            last;
+                        if ($score_all > $max and $count_all >= $min_count and $avr_all >= $min_profit) {
+                            ($max_i, $max_j) = ($i, $j);
+                            $max = $score_all;
                         }
                     }
                 }
-                if ($flag_ok) {
+                if ($max) {
                     for (my $i = 0; $i < scalar(@list); ++$i) {
-                        my $mark = "#" if $i >= $ok_i and $i <= $ok_j;
-                        print OUT "$mark$list[$i]->[3]\n";
+                        my $mark = "#" if $i >= $max_i and $i <= $max_j;
+                        print OUT "$mark$list[$i]->[4]\n";
+                        
+                        if ($i == $max_j) {
+                            my $template = $list[$i]->[3];
+                            $template =~ s{xxx}{$list[$max_i]->[2]-$list[$max_j]->[2]};
+                            print OUT "$template\n";
+                        }
                     }
                 }
             }
             @list = ();
         }
         last if $bits eq "xxx";
-        push @list, [$c, $avr, $scale, $_];
+        my $template = join(":", ($sell_flag ? "-" : "+").$time, "xxx", $bits);
+        push @list, [$c, $avr, $scale, $template, $_];
         $prev_bits = $bits;
     }
     close OUT;

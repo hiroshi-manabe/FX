@@ -7,7 +7,9 @@ use Digest::MD5;
 use File::Temp;
 
 my $delay = 3;
-my %times_dict = (120000 => (), 240000 => ());
+my @times = qw(180000 210000 240000 270000 300000 330000 360000);
+my %times_dict;
+@times_dict{@times} = ();
 my $scale_threshold = 4;
 my $freq_threshold = 20;
 my $in_dir = "weekly_past_data";
@@ -20,9 +22,14 @@ sub main {
         $currency = $1;
     }
     my $sell_flag = 0;
+    if (@ARGV < 2 or @ARGV > 3) {
+        print STDERR "$0 <start week> <end week> [sell]\n";
+        exit(-1);
+    }
+    my $start_week = shift @ARGV;
+    my $end_week = shift @ARGV;
     if (@ARGV) {
-        my $temp = shift @ARGV;
-        $sell_flag = 1 if $temp eq "sell";
+        $sell_flag = 1 if $ARGV[0] eq "sell";
     }
     my $temp_dir = File::Temp->newdir();
     my %fp_dict;
@@ -34,7 +41,7 @@ sub main {
     while (<$currency/$in_dir/week_*.csv>) {
         my %wait_time_dict = ();
         m{week_(\d{3})};
-        next if $1 <= 313 or $1 >= 358;
+        next if $1 < $start_week or $1 > $end_week;
 #        next if $1 >= 1;
         print "$_\n";
         m{/([^/]+)$};
@@ -49,25 +56,23 @@ sub main {
         close IN;
         for my $i(0..$#data) {
             if ($i >= $delay) {
-                my $time = $data[$i-$delay-1]->[0];
+               my $time = $data[$i-$delay]->[0];
                 my $result_str = $data[$i]->[5];
                 my %result_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $result_str);
-                my $past_str = $data[$i-$delay-1]->[6];
+                my $past_str = $data[$i-$delay]->[6];
                 my %past_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $past_str);
-                
-                if ($time < $wait_time_dict{$past_str}) {
-                    next;
-                }
-                else {
-                    for my $key(keys %times_dict) {
-                        die "$key not exist: $$key" if not exists $result_dict{$key};
-                        my ($scale, $bits) = @{$past_dict{$key}};
-                        my ($result_score, $result_time)  = @{$result_dict{$key}};
-                        my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
-                        next if $scale == 0 or $result_score == -1;
-                        print { $fp_dict{$hex}->{"fp"} } join(",", join(":", $key, $scale, $bits), $result_score)."\n";
-                        $wait_time_dict{$past_str} = $result_time;
+                for my $key(keys %times_dict) {
+                    die "$key not exist: $$key" if not exists $result_dict{$key};
+                    my ($scale, $bits) = @{$past_dict{$key}};
+                    my $past_key = join(":", $key, $bits);
+                    if ($time < $wait_time_dict{$past_key}) {
+                        next;
                     }
+                    my ($result_score, $result_time)  = @{$result_dict{$key}};
+                    my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
+                    next if $scale == 0 or $result_score == -1;
+                    print { $fp_dict{$hex}->{"fp"} } join(",", join(":", $key, $scale, $bits), $result_score)."\n";
+                    $wait_time_dict{$past_key} = $result_time;
                 }
             }
         }
@@ -110,7 +115,7 @@ sub main {
                     my ($scale, $r) = @{$t};
                     if ($prev_scale and $scale != $prev_scale) {
                         my $avr = $sum / $count;
-                        print { $fp_dict_out{$time}->{"fp"} } "$time:$scale:$key,$count,$avr\n";
+                        print { $fp_dict_out{$time}->{"fp"} } "$time:$prev_scale:$key,$count,$avr\n";
                         $sum = 0;
                         $count = 0;
                     }

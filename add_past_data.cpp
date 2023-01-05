@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
   }
 
   int bit_width;
-  int time_widths[10] = {0};
-  int time_factors[10] = {0};
+  int time_widths[100] = {0};
+  int time_factors[100] = {0};
   int n = argc - 3;
   int bit_height;
   stringstream(argv[1]) >> bit_width;
