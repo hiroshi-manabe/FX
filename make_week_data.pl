@@ -15,7 +15,7 @@ sub main() {
     }
     die "$currency: Not found" if not -d $currency;
     mkdir "$currency/weekly" if not -d "$currency/weekly";
-    my $first_year = 116;
+    my $first_year = 122;
     my $first_mon = 0;
     my $first_day = 4;
     my $time = timegm(0, 0, 0, $first_day, $first_mon, $first_year);

@@ -8,6 +8,9 @@ use List::Util qq(sum);
 
 my $in_file = "features_final.csv";
 my $delay = 3;
+my $check_interval = 30000;
+my $min_profit = 5;
+my $test_width = 4;
 
 sub main {
     my $currency;
@@ -32,9 +35,10 @@ sub main {
     while (<IN>) {
         chomp;
         next if m{^#};
+        my $orig = $_;
         my $is_sell = (s{^([\+\-])}{} and $1 eq "-") ? 1 : 0;
-        my ($time_width, $min_scale, $max_scale, $bits) = split/[\-,:]/;
-        $features{"$time_width:$bits"} = [$min_scale, $max_scale, $is_sell];
+        my ($min_width, $max_width, $min_height, $max_height, $bits) = split/[\-,:]/;
+        $features{$bits} = [$min_width, $max_width, $min_height, $max_height, $is_sell, $orig];
     }
     close IN;
 
@@ -72,7 +76,22 @@ sub main {
             my $past_str = $data[-$delay-1]->[6];
             my %past_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $past_str);
             if ($order) {
-                if (($order->{"is_sell"} eq "buy" and
+                my $close_flag = 0;
+                if ($time > $order->{"time"} + $order->{"prev_checked"} + $check_interval) {
+                    if (($order->{"is_sell"} eq "buy" and
+                         $price <= $order->{"prev_price"} + $min_profit) or
+                        ($order->{"is_sell"} eq "sell" and
+                         $price >= $order->{"prev_price"} - $min_profit)) {
+                        $close_flag = 1;
+                    }
+                    else {
+                        $order->{"prev_checked"} += $check_interval;
+                        $order->{"prev_price"} = $price;
+                    }
+                }
+                if (
+                    $close_flag or
+                    ($order->{"is_sell"} eq "buy" and
                      ($price >= $order->{"price"} + $buy_take_profit or
                       $price <= $order->{"price"} - $buy_loss_cut)) or
                     ($order->{"is_sell"} eq "sell" and
@@ -93,24 +112,23 @@ sub main {
                     
                     $score += $profit;
                     $hit_count++;
-                    my $key = $order->{"key"};
-                    $score_by_feature{$key} += $profit;
-                    $count_by_feature{$key}++;
+                    my $bits = $order->{"bits"};
+                    $score_by_feature{$bits} += $profit;
+                    $count_by_feature{$bits}++;
                     print OUT qq{Order close: time $order->{"time"} time width $order->{"time_width"} $order->{"is_sell"} key $order->{"key"} profit $profit\n};
                     $order = undef;
                 }
             }
             for my $time_width(sort { $a<=>$b } keys %past_dict) {
-                my ($scale, $bits) = @{$past_dict{$time_width}};
-                my $key = "$time_width:$bits";
-                if (not $order and exists $features{$key}) {
-                    my ($min_scale, $max_scale, $is_sell) = @{$features{$key}};
-                    if ($scale >= $min_scale and $scale <= $max_scale) {
-                        my $sign = $is_sell ? - 1 : 1;
-                        my $str = $is_sell ? "sell" : "buy";
-
-                        print OUT "Order: time $time time width $time_width $str key $key range $min_scale-$max_scale scale $scale\n";
-                        $order = { "price" => $price, "time" => $time, "time_width" => $time_width, "is_sell" => $str, "key" => $key};
+                my $width = int($time_width / 10000);
+                my ($height, $bits) = @{$past_dict{$time_width}};
+                if (not $order and exists $features{$bits}) {
+                    my ($min_width, $max_width, $min_height, $max_height, $is_sell, $key) = @{$features{$bits}};
+                    my $sign = $is_sell ? - 1 : 1;
+                    my $str = $is_sell ? "sell" : "buy";
+                    if ($width >= $min_width and $width <= $max_width and $height >= $min_height and $height <= $max_height) {
+                        print OUT "Order: time $time time width $time_width $str key $key width $width height $height\n";
+                        $order = { "price" => $price, "time" => $time, "time_width" => $time_width, "is_sell" => $str, "key" => $key, "bits" => $bits, "prev_checked" => 0, "prev_price" => $price};
                     }
                 }
             }
@@ -125,15 +143,12 @@ sub main {
     my $avr_all = 0;
     $avr_all = $score_all / $hit_count_all if $hit_count_all;
     print OUT "Total: score $score_all hit count $hit_count_all average score $avr_all\n";
-    for my $key(keys %features) {
-        my $score = $score_by_feature{$key};
-        my $count = $count_by_feature{$key};
+    for my $bits(keys %features) {
+        my $score = $score_by_feature{$bits};
+        my $count = $count_by_feature{$bits};
         my $avr = 0;
         $avr = $score / $count if $count;
-        my ($min_scale, $max_scale, $is_sell) = @{$features{$key}};
-        my ($time_width, $bits) = split/:/, $key;
-        my $sign = $is_sell ? "-" : "+";
-        print OUT "$sign$time_width:$min_scale-$max_scale:$bits score $score count $count average $avr\n";
+        print OUT "$features{$bits}->[5] score $score count $count average $avr\n";
     }
     close OUT;
     `cp -pf $out_file $latest_file`;
