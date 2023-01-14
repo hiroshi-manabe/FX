@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <istream>
@@ -5,6 +6,7 @@
 #include <string>
 #include <vector>
 
+using std::abs;
 using std::cerr;
 using std::cin;
 using std::cout;
@@ -54,11 +56,23 @@ int main(int argc, char *argv[]) {
     stringstream(t) >> i;
     price_list.push_back(i);
   }
+  int movement_width = 300000;
+  int movement = 0;
+  int movement_start_index = 0;
   for (int i = 0; i < orig_list.size(); ++i) {
+    int cur_time = time_list[i];
+    if (i > 0) {
+      movement += abs(price_list[i] - price_list[i-1]);
+    }
+    while (time_list[i] - movement_width > time_list[movement_start_index]) {
+      movement_start_index++;
+      movement -= abs(price_list[movement_start_index] - price_list[movement_start_index-1]);
+    }
+    const char *movement_str = (movement < 800) ? "0" : (movement < 1200) ? "1" : (movement < 1800) ? "2" : "3";
+    
     cout << orig_list[i] << ",";
     for (int j = 0; j < n; ++j) {
-      cout << time_widths[j] << ":";
-      int cur_time = time_list[i];
+      cout << movement_str << ":" << time_widths[j] << ":";
       if (cur_time >= time_widths[j] - 1) {
         int start_time = cur_time - time_widths[j] + 1;
         int cur_price = price_list[i];
