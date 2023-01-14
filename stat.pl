@@ -7,9 +7,6 @@ use Digest::MD5;
 use File::Temp;
 
 my $delay = 3;
-my @times = qw(210000 220000 230000 240000 250000 260000 270000 280000 290000 300000);
-my %times_dict;
-@times_dict{@times} = ();
 my $scale_threshold = 4;
 my $freq_threshold = 100;
 my $in_dir = "weekly_past_data";
@@ -57,14 +54,14 @@ sub main {
         close IN;
         for my $i(0..$#data) {
             if ($i >= $delay) {
-               my $time = $data[$i-$delay]->[0];
+                my $time = $data[$i-$delay]->[0];
                 my $result_str = $data[$i]->[5];
                 my %result_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $result_str);
                 my $past_str = $data[$i-$delay]->[6];
-                my %past_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $past_str);
-                for my $time_key(keys %times_dict) {
-                    die "time not exist: $time_key" if not exists $result_dict{$result_time_key};
-                    my ($scale, $bits) = @{$past_dict{$time_key}};
+                my @past_list = map { [split/:/] } split(m{/}, $past_str);
+                for my $past(@past_list) {
+                    die "time not exist: $result_time_key" if not exists $result_dict{$result_time_key};
+                    my ($speed, $time_width, $scale, $bits) = @{$past};
                     my $past_key = $bits;
                     if ($time < $wait_time_dict{$past_key}) {
                         next;
@@ -72,7 +69,7 @@ sub main {
                     my ($result_score, $result_time)  = @{$result_dict{$result_time_key}};
                     my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
                     next if $scale == 0 or $result_score == -1;
-                    print { $fp_dict{$hex}->{"fp"} } join(",", join(":", $week_diff, int($time_key / 10000), $scale, $bits), $result_score)."\n";
+                    print { $fp_dict{$hex}->{"fp"} } join(",", join(":", $speed, int($time_width / 10000), $scale, $bits), $result_score)."\n";
                     $wait_time_dict{$past_key} = $result_time;
                 }
             }
