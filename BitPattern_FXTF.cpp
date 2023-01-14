@@ -56,6 +56,7 @@ void OnTick()
   }
   uint curTime = GetTickCount();
   if (order.tickets[0] && FileIsExist("signal_close.csv", FILE_COMMON)) {
+    bool orderClosed = true;
     for (uint i = 0; i < 100; ++i) {
       if (order.tickets[i] == 0) {
         break;
@@ -78,12 +79,17 @@ void OnTick()
                     " profit: " + DoubleToStr(OrderProfit()));
           order.tickets[i] = 0;
         }
+        else {
+            orderClosed = false;
+        }
       }
+    }
+    if (orderClosed) {
       FileDelete("signal_close.csv", FILE_COMMON);
     }
-    if (order.tickets[0]) {
-      return;
-    }
+  }
+  if (order.tickets[0]) {
+    return;
   }
   
   if (!FileIsExist("signal.csv", FILE_COMMON)) {
