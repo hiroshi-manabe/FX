@@ -61,7 +61,7 @@ sub main {
                 my @past_list = map { [split/:/] } split(m{/}, $past_str);
                 for my $past(@past_list) {
                     die "time not exist: $result_time_key" if not exists $result_dict{$result_time_key};
-                    my ($speed, $time_width, $scale, $bits) = @{$past};
+                    my ($time_width, $scale, $speed, $bits) = @{$past};
                     my $past_key = $bits;
                     if ($time < $wait_time_dict{$past_key}) {
                         next;
@@ -69,7 +69,7 @@ sub main {
                     my ($result_score, $result_time)  = @{$result_dict{$result_time_key}};
                     my $hex = substr(Digest::MD5::md5_hex($bits), 0, 2);
                     next if $scale == 0 or $result_score == -1;
-                    print { $fp_dict{$hex}->{"fp"} } join(",", join(":", $speed, int($time_width / 10000), $scale, $bits), $result_score)."\n";
+                    print { $fp_dict{$hex}->{"fp"} } join(",", join(":", int($time_width / 10000), $scale, $speed, $bits), $result_score)."\n";
                     $wait_time_dict{$past_key} = $result_time;
                 }
             }
@@ -93,9 +93,9 @@ sub main {
             my @F = split/,/;
             my $past = $F[0];
             my $result = $F[1];
-            my ($week_diff, $time, $scale, $bits) = split/:/, $past;
+            my ($time, $scale, $speed, $bits) = split/:/, $past;
             next if $scale < $scale_threshold;
-            push @{$dict{$bits}}, [$week_diff, $time, $scale, $result];
+            push @{$dict{$bits}}, [$time, $scale, $speed, $result];
         }
         close $fp_dict{$hex}->{"fp"};
         for my $bits(sort keys %dict) {

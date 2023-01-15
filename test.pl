@@ -74,7 +74,7 @@ sub main {
             next if scalar(@data) <= $delay;
             my $time = $F[0];
             my $past_str = $data[-$delay-1]->[6];
-            my %past_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $past_str);
+            my %past_dict = map { my @t = split/:/; ($t[0], [$t[1], join(":", @t[2..$#t])]); } split(m{/}, $past_str);
             if ($order) {
                 my $close_flag = 0;
                 if ($time > $order->{"time"} + $order->{"prev_checked"} + $check_interval) {

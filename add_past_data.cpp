@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     
     cout << orig_list[i] << ",";
     for (int j = 0; j < n; ++j) {
-      cout << movement_str << ":" << time_widths[j] << ":";
+      cout << time_widths[j] << ":";
       if (cur_time >= time_widths[j] - 1) {
         int start_time = cur_time - time_widths[j] + 1;
         int cur_price = price_list[i];
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
             bits[byte_index] |= bit_data;
           }
         }
-        cout << price_factor << ":";
+        cout << price_factor << ":" << movement_str << ":";
         for (int k = 0; k < byte_count; ++k) {
           char buf[3];
           snprintf(buf, 3, "%02x", bits[k]);
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         }
       }
       else {
-        cout << 0 << ":";
+        cout << 0 << ":" << 0 << ":";
         const char buf[3] = "ff";
         for (int k = 0; k < byte_count; ++k) {
           cout << buf;
