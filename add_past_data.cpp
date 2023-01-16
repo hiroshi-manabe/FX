@@ -21,20 +21,22 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 4) {
-    cerr << "Usage: add_past_data <bit_width> <bit_height> <time_width> ...\n";
+  if (argc < 5) {
+    cerr << "Usage: add_past_data <max_speed> <bit_width> <bit_height> <time_width> ...\n";
     exit(-1);
   }
 
+  int max_speed;
   int bit_width;
   int time_widths[100] = {0};
   int time_factors[100] = {0};
-  int n = argc - 3;
+  int n = argc - 4;
   int bit_height;
-  stringstream(argv[1]) >> bit_width;
-  stringstream(argv[2]) >> bit_height;
+  stringstream(argv[1]) >> max_speed;
+  stringstream(argv[2]) >> bit_width;
+  stringstream(argv[3]) >> bit_height;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[3 + i]) >> time_widths[i];
+    stringstream(argv[4 + i]) >> time_widths[i];
     time_factors[i] = time_widths[i] / bit_width;
   }
 
@@ -68,7 +70,7 @@ int main(int argc, char *argv[]) {
       movement_start_index++;
       movement -= abs(price_list[movement_start_index] - price_list[movement_start_index-1]);
     }
-    const char *movement_str = (movement < 800) ? "0" : (movement < 1200) ? "1" : (movement < 1800) ? "2" : "3";
+    const char *movement_str = (movement < max_speed) ? "0" : "1";
     
     cout << orig_list[i] << ",";
     for (int j = 0; j < n; ++j) {

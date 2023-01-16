@@ -37,8 +37,9 @@ sub main {
         next if m{^#};
         my $orig = $_;
         my $is_sell = (s{^([\+\-])}{} and $1 eq "-") ? 1 : 0;
-        my ($min_width, $max_width, $min_height, $max_height, $bits) = split/[\-,:]/;
-        $features{$bits} = [$min_width, $max_width, $min_height, $max_height, $is_sell, $orig];
+        my ($min_width, $max_width, $min_height, $max_height, $speed, $bits) = split/[\-,:]/;
+        my $key = join(":", $speed, $bits);
+        $features{$key} = [$min_width, $max_width, $min_height, $max_height, $is_sell, $orig];
     }
     close IN;
 

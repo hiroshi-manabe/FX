@@ -6,7 +6,7 @@ use open IO => ":utf8", ":std";
 use Statistics::Distributions;
 
 my $stat_filename = "stat.csv";
-my @probs = (0.18, 0.64, 0.18);
+my @probs = (0.20, 0.60, 0.20);
 
 sub main {
     my $currency;
@@ -21,7 +21,7 @@ sub main {
     while (<IN>) {
         chomp;
         my ($width, $height, $speed, $bits, $result) = split/[:,]/;
-        my $t = $result >= 15 ? 2 : $result <= -15 ? 0 : 1;
+        my $t = $result >= 20 ? 2 : $result <= -20 ? 0 : 1;
         my $key = "$speed:$bits";
         $data{$key}->[$width]->[$height]->[$t]++;
         $data{$key}->[$width]->[$height]->[3] += $result;

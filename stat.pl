@@ -11,7 +11,7 @@ my $scale_threshold = 4;
 my $freq_threshold = 100;
 my $in_dir = "weekly_past_data";
 my $out_filename = "stat.csv";
-my $result_time_key = 30000;
+my $result_time_key = 60000;
 
 sub main {
     my $currency;
