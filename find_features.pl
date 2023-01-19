@@ -7,6 +7,8 @@ use Statistics::Distributions;
 
 my $stat_filename = "stat.csv";
 my @probs = (0.20, 0.60, 0.20);
+my $e1 = 3;
+my $v1 = 100;
 
 sub main {
     my $currency;
@@ -20,9 +22,9 @@ sub main {
     my @sum_all = ();
     while (<IN>) {
         chomp;
-        my ($width, $height, $speed, $bits, $result) = split/[:,]/;
+        my ($width, $height, $bits, $result) = split/[:,]/;
         my $t = $result >= 20 ? 2 : $result <= -20 ? 0 : 1;
-        my $key = "$speed:$bits";
+        my $key = $bits;
         $data{$key}->[$width]->[$height]->[$t]++;
         $data{$key}->[$width]->[$height]->[3] += $result;
         $data{$key}->[$width]->[$height]->[4]++;
@@ -45,7 +47,10 @@ sub main {
                                 for my $i(0..2) {
                                     $sums[$i] += $data{$bits}->[$x+$w]->[$y+$h]->[$i];
                                 }
-                                $score_sum += $data{$bits}->[$x+$w]->[$y+$h]->[3];
+                                my $score = $data{$bits}->[$x+$w]->[$y+$h]->[3];
+                                $score = 20 if $score > 20;
+                                $score = -20 if $score < -20;
+                                $score_sum += $score;
                                 $count_sum += $data{$bits}->[$x+$w]->[$y+$h]->[4];
                             }
                         }
@@ -68,6 +73,11 @@ sub main {
                         my $e = $all * $probs[$index];
                         my $v = $all * $probs[$index] * (1 - $probs[$index]);
                         my $z = abs(($this - $e) / sqrt($v));
+
+#                        my $e = $is_sell ? -$e1 : $e1;
+                        next if ($is_sell and $avr > -$e1) or (not $is_sell and $avr < $e1);
+#                        my $v = $v1 * $count_sum;
+#                        my $z = abs(($score_sum - ($e * $count_sum)) / sqrt($v));
                         my $uprob = Statistics::Distributions::uprob($z);
                         print "$sign$x-$xx:$y-$yy:$bits,$uprob,$count_sum,$avr\n";
                     }

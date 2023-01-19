@@ -21,8 +21,8 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 5) {
-    cerr << "Usage: add_past_data <max_speed> <bit_width> <bit_height> <time_width> ...\n";
+  if (argc < 4) {
+    cerr << "Usage: add_past_data <bit_width> <bit_height> <time_width> ...\n";
     exit(-1);
   }
 
@@ -30,13 +30,12 @@ int main(int argc, char *argv[]) {
   int bit_width;
   int time_widths[100] = {0};
   int time_factors[100] = {0};
-  int n = argc - 4;
+  int n = argc - 3;
   int bit_height;
-  stringstream(argv[1]) >> max_speed;
-  stringstream(argv[2]) >> bit_width;
-  stringstream(argv[3]) >> bit_height;
+  stringstream(argv[1]) >> bit_width;
+  stringstream(argv[2]) >> bit_height;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[4 + i]) >> time_widths[i];
+    stringstream(argv[3 + i]) >> time_widths[i];
     time_factors[i] = time_widths[i] / bit_width;
   }
 
@@ -61,7 +60,11 @@ int main(int argc, char *argv[]) {
   int movement_width = 300000;
   int movement = 0;
   int movement_start_index = 0;
+
+  int price_to_normalize = 100000;
+  
   for (int i = 0; i < orig_list.size(); ++i) {
+    double rate = (double)price_list[i] / price_to_normalize;
     int cur_time = time_list[i];
     if (i > 0) {
       movement += abs(price_list[i] - price_list[i-1]);
@@ -70,19 +73,17 @@ int main(int argc, char *argv[]) {
       movement_start_index++;
       movement -= abs(price_list[movement_start_index] - price_list[movement_start_index-1]);
     }
-    const char *movement_str = (movement < max_speed) ? "0" : "1";
-    
-    cout << orig_list[i] << ",";
+    int movement_normalized = (int)((double)movement / rate);
+    cout << orig_list[i] << "," << movement_normalized << ",";
     for (int j = 0; j < n; ++j) {
       cout << time_widths[j] << ":";
       if (cur_time >= time_widths[j] - 1) {
         int start_time = cur_time - time_widths[j] + 1;
-        int cur_price = price_list[i];
         int min_rel_price = 0;
         int max_rel_price = 0;
         unsigned char bits[1024] = { 0 }; // some big number
         for (int k = i; time_list[k] >= start_time && k >= 0; --k) {
-          int rel_price = price_list[k] - cur_price;
+          int rel_price = int((double)price_list[k] / rate) - price_to_normalize;
           if (rel_price < min_rel_price) {
             min_rel_price = rel_price;
           }
@@ -101,10 +102,10 @@ int main(int argc, char *argv[]) {
         if (price_factor_max > price_factor) {
           price_factor = price_factor_max;
         }
-        int min_price = cur_price + (min_rel_price_bits * price_factor);
+        int min_price = price_to_normalize + (min_rel_price_bits * price_factor);
         for (int k = i; time_list[k] >= start_time && k >= 0; --k) {
           int time = time_list[k];
-          int price = price_list[k];
+          int price = int((double)price_list[k] / rate);
           int time_diff = time - start_time;
           int price_diff = price - min_price;
           int time_index = time_diff / time_factors[j];
@@ -116,7 +117,7 @@ int main(int argc, char *argv[]) {
             bits[byte_index] |= bit_data;
           }
         }
-        cout << price_factor << ":" << movement_str << ":";
+        cout << price_factor << ":";
         for (int k = 0; k < byte_count; ++k) {
           char buf[3];
           snprintf(buf, 3, "%02x", bits[k]);
@@ -124,7 +125,7 @@ int main(int argc, char *argv[]) {
         }
       }
       else {
-        cout << 0 << ":" << 0 << ":";
+        cout << 0 << ":";
         const char buf[3] = "ff";
         for (int k = 0; k < byte_count; ++k) {
           cout << buf;

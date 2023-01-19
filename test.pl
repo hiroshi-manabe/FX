@@ -11,6 +11,7 @@ my $delay = 3;
 my $check_interval = 30000;
 my $min_profit = 5;
 my $test_width = 4;
+my $speed_threshold = 1300;
 
 sub main {
     my $currency;
@@ -37,8 +38,8 @@ sub main {
         next if m{^#};
         my $orig = $_;
         my $is_sell = (s{^([\+\-])}{} and $1 eq "-") ? 1 : 0;
-        my ($min_width, $max_width, $min_height, $max_height, $speed, $bits) = split/[\-,:]/;
-        my $key = join(":", $speed, $bits);
+        my ($min_width, $max_width, $min_height, $max_height, $bits) = split/[\-,:]/;
+        my $key = $bits;
         $features{$key} = [$min_width, $max_width, $min_height, $max_height, $is_sell, $orig];
     }
     close IN;
@@ -74,7 +75,9 @@ sub main {
             push @data, [@F];
             next if scalar(@data) <= $delay;
             my $time = $F[0];
-            my $past_str = $data[-$delay-1]->[6];
+            my $speed = $data[-$delay-1]->[6];
+            next if $speed >= $speed_threshold;
+            my $past_str = $data[-$delay-1]->[7];
             my %past_dict = map { my @t = split/:/; ($t[0], [$t[1], join(":", @t[2..$#t])]); } split(m{/}, $past_str);
             if ($order) {
                 my $close_flag = 0;

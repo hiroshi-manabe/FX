@@ -116,6 +116,9 @@ void OnTick()
     double maxBet = (double)(int(AccountInfoDouble(ACCOUNT_BALANCE) * 0.023 / price) - 1) / 100.0;
     int parts = int((maxBet + 10) / 10);
     double bet = (double)int(maxBet * 10 / parts) / 10.0;
+    if (FileIsExist("signal_close.csv", FILE_COMMON)) {
+      FileDelete("signal_close.csv", FILE_COMMON);
+    }
     for (uint l = 0; l < parts; ++l) {
       int ticket = OrderSend(Symbol(),
                 isSell ? OP_SELL : OP_BUY,
