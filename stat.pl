@@ -12,7 +12,10 @@ my $freq_threshold = 100;
 my $in_dir = "weekly_past_data";
 my $out_filename = "stat.csv";
 my $result_time_key = 60000;
-my $speed_threshold = 1300;
+my $speed_threshold = 1000;
+my $speed_wait = 600000;
+my $diff_threshold = 200;
+my $diff_wait = 600000;
 
 sub main {
     my $currency;
@@ -53,14 +56,20 @@ sub main {
             push @data, [@F];
         }
         close IN;
+        my $speed_over_time = 0;
+        my $diff_over_time = 0;
         for my $i(0..$#data) {
             if ($i >= $delay) {
                 my $time = $data[$i-$delay]->[0];
                 my $result_str = $data[$i]->[5];
                 my %result_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $result_str);
                 my $speed = $data[$i-$delay]->[6];
-                next if $speed > $speed_threshold;
-                my $past_str = $data[$i-$delay]->[7];
+                $speed_over_time = $time if $speed > $speed_threshold;
+                my $diff = $data[$i-$delay]->[7];
+                $diff_over_time = $time if $diff > $diff_threshold;
+                next if $time < $speed_over_time + $speed_wait or $time < $diff_over_time + $diff_wait;
+                
+                my $past_str = $data[$i-$delay]->[8];
                 my @past_list = map { [split/:/] } split(m{/}, $past_str);
                 for my $past(@past_list) {
                     die "time not exist: $result_time_key" if not exists $result_dict{$result_time_key};

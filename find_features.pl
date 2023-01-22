@@ -5,7 +5,8 @@ use open IO => ":utf8", ":std";
 
 use Statistics::Distributions;
 
-my $stat_filename = "stat.csv";
+my $input_filename = "stat.csv";
+my $output_filename = "stat2.csv";
 my @probs = (0.20, 0.60, 0.20);
 my $e1 = 3;
 my $v1 = 100;
@@ -16,8 +17,8 @@ sub main {
         m{currency_(.{6})};
         $currency = $1;
     }
-    my $stat_file = "$currency/$stat_filename";
-    open IN, "<", $stat_file or die "$stat_file: $!";
+    my $input_file = "$currency/$input_filename";
+    open IN, "<", $input_file or die "$input_file: $!";
     my %data = ();
     my @sum_all = ();
     while (<IN>) {
@@ -31,6 +32,9 @@ sub main {
         $sum_all[$t]++;
     }
     close IN;
+    
+    my $output_file = "$currency/$output_filename";
+    open OUT, ">", $output_file or die "$output_file: $!";
 
     my %count_dict = ();
 
@@ -79,7 +83,7 @@ sub main {
 #                        my $v = $v1 * $count_sum;
 #                        my $z = abs(($score_sum - ($e * $count_sum)) / sqrt($v));
                         my $uprob = Statistics::Distributions::uprob($z);
-                        print "$sign$x-$xx:$y-$yy:$bits,$uprob,$count_sum,$avr\n";
+                        print OUT "$sign$x-$xx:$y-$yy:$bits,$uprob,$count_sum,$avr\n";
                     }
                 }
             }
@@ -87,8 +91,9 @@ sub main {
     }
     my $sum = 0;
     for my $count(sort {$b<=>$a} keys %count_dict) {
-        print ":$count,$count_dict{$count}\n";
+        print OUT ":$count,$count_dict{$count}\n";
     }
+    close OUT;
 }
 
 main();

@@ -61,6 +61,10 @@ int main(int argc, char *argv[]) {
   int movement = 0;
   int movement_start_index = 0;
 
+  int diff_width = 3600000;
+  int diff = 0;
+  int diff_start_index = 0;
+
   int price_to_normalize = 100000;
   
   for (int i = 0; i < orig_list.size(); ++i) {
@@ -73,8 +77,15 @@ int main(int argc, char *argv[]) {
       movement_start_index++;
       movement -= abs(price_list[movement_start_index] - price_list[movement_start_index-1]);
     }
+
+    while (time_list[i] - diff_width > time_list[diff_start_index]) {
+      diff_start_index++;
+      diff = abs(price_list[i] - price_list[diff_start_index]);
+    }
+    
     int movement_normalized = (int)((double)movement / rate);
-    cout << orig_list[i] << "," << movement_normalized << ",";
+    int diff_normalized = (int)((double)diff / rate);
+    cout << orig_list[i] << "," << movement_normalized << "," << diff_normalized << ",";
     for (int j = 0; j < n; ++j) {
       cout << time_widths[j] << ":";
       if (cur_time >= time_widths[j] - 1) {
