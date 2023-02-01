@@ -6,6 +6,7 @@
 #property strict
 
 uint curIndex = 0;
+uint prevIndex = 0;
 uint priceList[10000];
 uint timeList[10000];
 uint timeWidths[] = {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
@@ -13,8 +14,20 @@ uint timeScale = 10000;
 uint bitWidth = 6;
 uint bitHeight = 8;
 uint byteCount = 6;
+uint firstCheckInterval = 60000;
 uint checkInterval = 30000;
-double minProfit = 0.005;
+double minProfit = 0.000;
+int movementWidth = 300000;
+int movement = 0;
+int movementStartIndex = 0;
+int diffWidth = 3600000;
+int diff = 0;
+int diffStartIndex = 0;
+int priceToNormalize = 100000;
+int movementThreshold = 1200;
+int movementWait = 600000;
+int diffThreshold = 200;
+int diffWait = 600000;
 
 struct OrderInfo {
   int tickets[100];
@@ -22,6 +35,7 @@ struct OrderInfo {
   uint prevChecked;
   double prevPrice;
   bool isSell;
+  bool isActive;
 };
 
 OrderInfo order;
@@ -37,14 +51,29 @@ struct Feature {
 };
 
 Feature features[] = {
-  {1, 22, 24, 28, 28, "606060603038", "-22-24:28-28:606060603038"},
-  {1, 27, 29, 25, 26, "606070303818", "-27-29:25-26:606070303818"},
-  {0, 23, 25, 24, 26, "03030303030e", "+23-25:24-26:03030303030e"},
-  {0, 22, 24, 20, 22, "06030303071c", "+22-24:20-22:06030303071c"}
+  {1, 21, 25, 16, 18, "606020603818", "-21-25:16-18:606020603818"},
+  {0, 26, 27, 15, 18, "60e060303030", "+26-27:15-18:60e060303030"},
+  {0, 21, 24, 16, 20, "01030303021e", "+21-24:16-20:01030303021e"},
+  {1, 28, 29, 21, 25, "607030303030", "-28-29:21-25:607030303030"},
+  {0, 23, 27, 12, 15, "e07060703818", "+23-27:12-15:e07060703818"},
+  {0, 22, 24, 25, 29, "406060603038", "+22-24:25-29:406060603038"},
+  {1, 22, 25, 21, 25, "c06060607018", "-22-25:21-25:c06060607018"},
+  {1, 21, 25, 15, 19, "e06038181c18", "-21-25:15-19:e06038181c18"},
+  {0, 25, 29, 13, 17, "306060407018", "+25-29:13-17:306060407018"},
+  {1, 23, 26, 20, 24, "406070381818", "-23-26:20-24:406070381818"},
+  {1, 23, 26, 19, 21, "604060303818", "-23-26:19-21:604060303818"},
+  {0, 21, 25, 16, 17, "306060606070", "+21-25:16-17:306060606070"}
 };
 
-int handle_order;
+int handleOrder = INVALID_HANDLE;
+int handleTicks = INVALID_HANDLE;
 bool orderOnceForDebug = false;
+
+uint movementAboveThresholdTime = 0;
+uint diffAboveThresholdTime = 0;
+
+bool isMovementAboveThreshold = false;
+bool isDiffAboveThreshold = false;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -59,8 +88,12 @@ int OnInit()
                          IntegerToString(TimeMinute(current_time), 2) + "-" +
                          IntegerToString(TimeSeconds(current_time), 2);
 
-  handle_order = FileOpen("order_" + current_time_str + ".csv", FILE_WRITE | FILE_CSV);   
+  handleOrder = FileOpen("order_" + current_time_str + ".csv", FILE_WRITE | FILE_CSV);   
 
+  for (uint i = 0; i < 100; ++i) {
+    order.tickets[i] = INVALID_HANDLE;
+  }
+  order.isActive = false;
   //---
   return(INIT_SUCCEEDED);
 }
@@ -70,7 +103,13 @@ int OnInit()
 void OnDeinit(const int reason)
 {
   //--- destroy timer
-  FileClose(handle_order);   
+  if (handleOrder != INVALID_HANDLE) {
+    FileClose(handleOrder);
+  }
+  if (handleTicks != INVALID_HANDLE) {
+    FileClose(handleTicks);
+  }
+  
 }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -78,14 +117,78 @@ void OnDeinit(const int reason)
 void OnTick()
 {
   int nAsk = (int)(Ask * 1000);
+  int nBid = (int)(Bid * 1000);
+  
+  datetime current_time = TimeCurrent();
+  string tickDataFileName = StringFormat("ticks-%04d-%02d-%02d-%02d.csv",
+    TimeYear(current_time),
+    TimeMonth(current_time),
+    TimeDay(current_time),
+    TimeHour(current_time));
+
+  if (handleTicks == INVALID_HANDLE || !FileIsExist(tickDataFileName)) {
+    if (handleTicks != INVALID_HANDLE) {
+      FileClose(handleTicks);
+    }
+    handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
+  }
+  if (handleTicks != INVALID_HANDLE) {
+    FileWrite(handleTicks, GetTickCount(), nAsk, nBid);
+  }
+
   priceList[curIndex] = nAsk;
   uint curTime = GetTickCount();
   timeList[curIndex] = curTime;
   uint bufSize = ArraySize(priceList);
   uint c = curIndex;
+  uint p = (curIndex + bufSize - 1) % bufSize;
   curIndex = (curIndex + 1) % bufSize;
+
+  double rate = (double)nAsk / priceToNormalize;
+  
+  if (priceList[p]) {
+    movement += MathAbs((double)priceList[c] - priceList[p]);
+  }
+  
+  while (timeList[c] - movementWidth > timeList[movementStartIndex]) {
+    int m = movementStartIndex;
+    movementStartIndex = (movementStartIndex + 1) % bufSize;
+    movement -= MathAbs((double)priceList[movementStartIndex] - priceList[m]);
+  }
+
+  while(timeList[c] - diffWidth > timeList[diffStartIndex]) {
+    diffStartIndex = (diffStartIndex + 1) % bufSize;
+  }
+  diff = MathAbs((double)priceList[c] - priceList[diffStartIndex]);
+
+  int movementNormalized = (int)((double)movement / rate);
+  int diffNormalized = (int)((double)diff / rate);
+
+  if (movementNormalized >= movementThreshold) {
+    movementAboveThresholdTime = curTime;
+  }
+  if (diffNormalized >= diffThreshold) {
+    diffAboveThresholdTime = curTime;
+  }
+  
+
+  bool b;
+  b = (movementAboveThresholdTime != 0 && curTime < movementAboveThresholdTime + movementWait);
+  if (b != isMovementAboveThreshold) {
+    Print("Overspeed Mode: " + (b ? "On" : "Off"));
+    isMovementAboveThreshold = b;
+  }
+  b = (diffAboveThresholdTime != 0 && curTime < diffAboveThresholdTime + diffWait);
+  if (b != isDiffAboveThreshold) {
+    Print("Diff Mode: " + (b ? "On" : "Off"));
+    isDiffAboveThreshold = b;
+  }
+  
   bool spreadIsWide = Ask > Bid + 0.009;
-  if (order.tickets[0] && !spreadIsWide) {
+  if (spreadIsWide || isMovementAboveThreshold || isDiffAboveThreshold) {
+    return;
+  }
+  if (order.isActive) {
     bool closeFlag = false;
     if (curTime > order.time + order.prevChecked + checkInterval) {
       if ((!order.isSell &&
@@ -105,8 +208,8 @@ void OnTick()
       FileClose(handle_signal);
       
       for (uint i = 0; i < 100; ++i) {
-        if (order.tickets[i] == 0) {
-          break;
+        if (order.tickets[i] == INVALID_HANDLE) {
+          continue;
         }
         if (OrderSelect(order.tickets[i], SELECT_BY_TICKET)) {
           if (OrderCloseTime() == 0) {
@@ -122,14 +225,15 @@ void OnTick()
           }
           if (OrderCloseTime()) {
             Print("オーダークローズ、利益：", OrderProfit());
-            FileWrite(handle_order, "Order close, time:" + IntegerToString(GetTickCount()) + 
+            FileWrite(handleOrder, "Order close, time:" + IntegerToString(GetTickCount()) + 
                       " profit: " + DoubleToStr(OrderProfit()));
-            order.tickets[i] = 0;
+            order.tickets[i] = INVALID_HANDLE;
           }
         }
       }
+      order.isActive = false;
     }
-    if (order.tickets[0]) {
+    if (order.isActive) {
       return;
     }
   }
@@ -212,6 +316,9 @@ void OnTick()
           priceFactor <= f.maxHeight &&
           bitPatternStr == f.bitPatternStr) {
         orderOnceForDebug = false;
+        if (FileIsExist("signal_close.csv", FILE_COMMON)) {
+          FileDelete("signal_close.csv", FILE_COMMON);
+        }
         
         int handle_signal = FileOpen("signal.csv", FILE_WRITE | FILE_CSV | FILE_COMMON);
         FileWrite(handle_signal, GetTickCount() + "," +
@@ -230,26 +337,27 @@ void OnTick()
                     f.isSell ? OP_SELL : OP_BUY,
                     bet,
                     price,
-                    4,
+                    10,
                     f.isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
                     0);
-          if (ticket) {
+          if (ticket != INVALID_HANDLE) {
             order.tickets[l] = ticket;
+            order.isActive = true;
           }
           else {
             Print("オーダーエラー：エラーコード=", GetLastError());
           }
         }
-        if (order.tickets[0]) {
+        if (order.isActive {
           string orderStr = "Order, time: " + IntegerToString(GetTickCount()) + 
             " timeWidth: " + IntegerToString(timeWidths[i]) + 
             " scale: " + IntegerToString(priceFactor) +
             " feature: " + f.origStr + 
             " " + (f.isSell ? "sell" : "buy");
           Print(orderStr);
-          FileWrite(handle_order, orderStr);
+          FileWrite(handleOrder, orderStr);
           order.time = curTime;
-          order.prevChecked = 0;
+          order.prevChecked = firstCheckInterval - checkInterval;
           order.prevPrice = Ask;
           order.isSell = f.isSell;
         }

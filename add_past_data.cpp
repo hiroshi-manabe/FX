@@ -80,8 +80,8 @@ int main(int argc, char *argv[]) {
 
     while (time_list[i] - diff_width > time_list[diff_start_index]) {
       diff_start_index++;
-      diff = abs(price_list[i] - price_list[diff_start_index]);
     }
+    diff = abs(price_list[i] - price_list[diff_start_index]);
     
     int movement_normalized = (int)((double)movement / rate);
     int diff_normalized = (int)((double)diff / rate);

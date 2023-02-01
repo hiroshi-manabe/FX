@@ -14,11 +14,12 @@ struct OrderInfo {
   uint prevChecked;
   double prevPrice;
   bool isSell;
+  bool isActive;
 };
 
 OrderInfo order;
 
-int handle_order;
+int handleOrder;
 bool orderOnceForDebug = false;
 
 //+------------------------------------------------------------------+
@@ -34,7 +35,7 @@ int OnInit()
                          IntegerToString(TimeMinute(current_time), 2) + "-" +
                          IntegerToString(TimeSeconds(current_time), 2);
 
-  handle_order = FileOpen("order_" + current_time_str + ".csv", FILE_WRITE | FILE_CSV);   
+  handleOrder = FileOpen("order_" + current_time_str + ".csv", FILE_WRITE | FILE_CSV);   
   //---
   return(INIT_SUCCEEDED);
 }
@@ -44,7 +45,7 @@ int OnInit()
 void OnDeinit(const int reason)
 {
   //--- destroy timer
-  FileClose(handle_order);   
+  FileClose(handleOrder);   
 }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -55,11 +56,10 @@ void OnTick()
     return;
   }
   uint curTime = GetTickCount();
-  if (order.tickets[0] && FileIsExist("signal_close.csv", FILE_COMMON)) {
-    bool orderClosed = true;
+  if (order.isActive && FileIsExist("signal_close.csv", FILE_COMMON)) {
     for (uint i = 0; i < 100; ++i) {
-      if (order.tickets[i] == 0) {
-        break;
+      if (order.tickets[i] == INVALID_HANDLE) {
+        continue;
       }
       if (OrderSelect(order.tickets[i], SELECT_BY_TICKET)) {
         if (OrderCloseTime() == 0) {
@@ -75,20 +75,16 @@ void OnTick()
         }
         if (OrderCloseTime()) {
           Print("オーダークローズ、利益：", OrderProfit());
-          FileWrite(handle_order, "Order close, time:" + IntegerToString(GetTickCount()) + 
+          FileWrite(handleOrder, "Order close, time:" + IntegerToString(GetTickCount()) + 
                     " profit: " + DoubleToStr(OrderProfit()));
-          order.tickets[i] = 0;
-        }
-        else {
-            orderClosed = false;
+          order.tickets[i] = INVALID_HANDLE;
         }
       }
     }
-    if (orderClosed) {
-      FileDelete("signal_close.csv", FILE_COMMON);
-    }
+    order.isActive = false;
+    FileDelete("signal_close.csv", FILE_COMMON);
   }
-  if (order.tickets[0]) {
+  if (order.isActive) {
     return;
   }
   
@@ -110,36 +106,34 @@ void OnTick()
   FileDelete("signal.csv", FILE_COMMON);
   bool isSell = sellStr == "sell";
   
-  if (order.tickets[0] == 0) {
+  if (!order.isActive) {
     double price = isSell ? Bid : Ask;
     double closePrice = isSell ? Ask : Bid;
     double maxBet = (double)(int(AccountInfoDouble(ACCOUNT_BALANCE) * 0.023 / price) - 1) / 100.0;
     int parts = int((maxBet + 10) / 10);
     double bet = (double)int(maxBet * 10 / parts) / 10.0;
-    if (FileIsExist("signal_close.csv", FILE_COMMON)) {
-      FileDelete("signal_close.csv", FILE_COMMON);
-    }
     for (uint l = 0; l < parts; ++l) {
       int ticket = OrderSend(Symbol(),
                 isSell ? OP_SELL : OP_BUY,
                 bet,
                 price,
-                4,
+                10,
                 isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
                 0);
-      if (ticket) {
+      if (ticket != INVALID_HANDLE) {
         order.tickets[l] = ticket;
+        order.isActive = true;
       }
       else {
         Print("オーダーエラー：エラーコード=", GetLastError());
       }
     }
-    if (order.tickets[0]) {
+    if (order.isActive) {
       string orderStr = "Order, time: " + IntegerToString(GetTickCount()) + 
         " feature: " + origStr + 
         " " + (isSell ? "sell" : "buy");
       Print(orderStr);
-      FileWrite(handle_order, orderStr);
+      FileWrite(handleOrder, orderStr);
       order.time = curTime;
       order.prevChecked = 0;
       order.prevPrice = Ask;
