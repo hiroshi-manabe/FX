@@ -14,7 +14,6 @@ uint timeScale = 10000;
 uint bitWidth = 6;
 uint bitHeight = 8;
 uint byteCount = 6;
-uint firstCheckInterval = 60000;
 uint checkInterval = 30000;
 double minProfit = 0.000;
 int movementWidth = 300000;
@@ -51,18 +50,10 @@ struct Feature {
 };
 
 Feature features[] = {
-  {1, 21, 25, 16, 18, "606020603818", "-21-25:16-18:606020603818"},
-  {0, 26, 27, 15, 18, "60e060303030", "+26-27:15-18:60e060303030"},
-  {0, 21, 24, 16, 20, "01030303021e", "+21-24:16-20:01030303021e"},
-  {1, 28, 29, 21, 25, "607030303030", "-28-29:21-25:607030303030"},
-  {0, 23, 27, 12, 15, "e07060703818", "+23-27:12-15:e07060703818"},
-  {0, 22, 24, 25, 29, "406060603038", "+22-24:25-29:406060603038"},
-  {1, 22, 25, 21, 25, "c06060607018", "-22-25:21-25:c06060607018"},
-  {1, 21, 25, 15, 19, "e06038181c18", "-21-25:15-19:e06038181c18"},
-  {0, 25, 29, 13, 17, "306060407018", "+25-29:13-17:306060407018"},
   {1, 23, 26, 20, 24, "406070381818", "-23-26:20-24:406070381818"},
-  {1, 23, 26, 19, 21, "604060303818", "-23-26:19-21:604060303818"},
-  {0, 21, 25, 16, 17, "306060606070", "+21-25:16-17:306060606070"}
+  {1, 21, 25, 21, 24, "404060301038", "-21-25:21-24:404060301038"},
+  {1, 21, 25, 16, 18, "606020603818", "-21-25:16-18:606020603818"},
+  {1, 21, 21, 20, 24, "406060602030", "-21-21:20-24:406060602030"}
 };
 
 int handleOrder = INVALID_HANDLE;
@@ -348,7 +339,7 @@ void OnTick()
             Print("オーダーエラー：エラーコード=", GetLastError());
           }
         }
-        if (order.isActive {
+        if (order.isActive) {
           string orderStr = "Order, time: " + IntegerToString(GetTickCount()) + 
             " timeWidth: " + IntegerToString(timeWidths[i]) + 
             " scale: " + IntegerToString(priceFactor) +
@@ -357,7 +348,7 @@ void OnTick()
           Print(orderStr);
           FileWrite(handleOrder, orderStr);
           order.time = curTime;
-          order.prevChecked = firstCheckInterval - checkInterval;
+          order.prevChecked = 0;
           order.prevPrice = Ask;
           order.isSell = f.isSell;
         }

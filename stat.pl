@@ -14,8 +14,6 @@ my $out_filename = "stat.csv";
 my $result_time_key = 60000;
 my $speed_threshold = 1000;
 my $speed_wait = 600000;
-my $diff_threshold = 200;
-my $diff_wait = 600000;
 
 sub main {
     my $currency;
@@ -44,7 +42,6 @@ sub main {
         my %wait_time_dict = ();
         m{week_(\d{3})};
         next if $1 < $start_week or $1 > $end_week;
-        my $week_diff = $end_week - $1;
         print "$_\n";
         m{/([^/]+)$};
         my $filename = $1;
@@ -57,7 +54,6 @@ sub main {
         }
         close IN;
         my $speed_over_time = 0;
-        my $diff_over_time = 0;
         for my $i(0..$#data) {
             if ($i >= $delay) {
                 my $time = $data[$i-$delay]->[0];
@@ -65,9 +61,7 @@ sub main {
                 my %result_dict = map { my @t = split/:/; ($t[0], [@t[1..$#t]]); } split(m{/}, $result_str);
                 my $speed = $data[$i-$delay]->[6];
                 $speed_over_time = $time if $speed > $speed_threshold;
-                my $diff = $data[$i-$delay]->[7];
-                $diff_over_time = $time if $diff > $diff_threshold;
-                next if $time < $speed_over_time + $speed_wait or $time < $diff_over_time + $diff_wait;
+                next if $time < $speed_over_time + $speed_wait;
                 
                 my $past_str = $data[$i-$delay]->[8];
                 my @past_list = map { [split/:/] } split(m{/}, $past_str);

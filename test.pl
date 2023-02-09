@@ -9,12 +9,10 @@ use List::Util qq(sum);
 my $in_file = "features_final.csv";
 my $delay = 3;
 my $check_interval = 30000;
-my $min_profit = 5;
+my $min_profit = 0;
 my $test_width = 4;
 my $speed_threshold = 1000;
 my $speed_wait = 600000;
-my $diff_threshold = 200;
-my $diff_wait = 600000;
 
 sub main {
     my $currency;
@@ -72,7 +70,6 @@ sub main {
         my @data = ();
         my $order = undef;
         my $speed_over_time = 0;
-        my $diff_over_time = 0;
         while (<IN>) {
             chomp;
             my @F = split/,/;
@@ -82,9 +79,7 @@ sub main {
             my $time = $F[0];
             my $speed = $data[-$delay-1]->[6];
             $speed_over_time = $time if $speed > $speed_threshold;
-            my $diff = $data[-$delay-1]->[7];
-            $diff_over_time = $time if $diff > $diff_threshold;
-            next if $time < $speed_over_time + $speed_wait or $time < $diff_over_time + $diff_wait;
+            next if $time < $speed_over_time + $speed_wait;
             my $past_str = $data[-$delay-1]->[8];
             my %past_dict = map { my @t = split/:/; ($t[0], [$t[1], join(":", @t[2..$#t])]); } split(m{/}, $past_str);
             if ($order) {
