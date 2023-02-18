@@ -19,14 +19,9 @@ double minProfit = 0.000;
 int movementWidth = 300000;
 int movement = 0;
 int movementStartIndex = 0;
-int diffWidth = 3600000;
-int diff = 0;
-int diffStartIndex = 0;
 int priceToNormalize = 100000;
 int movementThreshold = 1200;
 int movementWait = 600000;
-int diffThreshold = 200;
-int diffWait = 600000;
 
 struct OrderInfo {
   int tickets[100];
@@ -50,10 +45,18 @@ struct Feature {
 };
 
 Feature features[] = {
-  {1, 23, 26, 20, 24, "406070381818", "-23-26:20-24:406070381818"},
-  {1, 21, 25, 21, 24, "404060301038", "-21-25:21-24:404060301038"},
-  {1, 21, 25, 16, 18, "606020603818", "-21-25:16-18:606020603818"},
-  {1, 21, 21, 20, 24, "406060602030", "-21-21:20-24:406060602030"}
+  {0, 23, 26, 19, 21, "603060606038", "+23-26:19-21:603060606038"},
+  {1, 27, 29, 25, 27, "606020301818", "-27-29:25-27:606020301818"},
+  {1, 21, 24, 21, 24, "01010103021e", "-21-24:21-24:01010103021e"},
+  {1, 24, 28, 17, 20, "406060607010", "-24-28:17-20:406060607010"},
+  {0, 27, 29, 22, 26, "606040703038", "+27-29:22-26:606040703038"},
+  {0, 22, 25, 18, 22, "40e060203018", "+22-25:18-22:40e060203018"},
+  {0, 24, 28, 13, 16, "7030381c0c18", "+24-28:13-16:7030381c0c18"},
+  {1, 24, 27, 12, 16, "030303061e38", "-24-27:12-16:030303061e38"},
+  {0, 29, 30, 23, 27, "607030181818", "+29-30:23-27:607030181818"},
+  {0, 22, 26, 17, 19, "603060607038", "+22-26:17-19:603060607038"},
+  {0, 29, 30, 20, 24, "030306060e18", "+29-30:20-24:030306060e18"},
+  {1, 26, 30, 23, 27, "606040606038", "-26-30:23-27:606040606038"}
 };
 
 int handleOrder = INVALID_HANDLE;
@@ -61,10 +64,8 @@ int handleTicks = INVALID_HANDLE;
 bool orderOnceForDebug = false;
 
 uint movementAboveThresholdTime = 0;
-uint diffAboveThresholdTime = 0;
 
 bool isMovementAboveThreshold = false;
-bool isDiffAboveThreshold = false;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -123,9 +124,6 @@ void OnTick()
     }
     handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
   }
-  if (handleTicks != INVALID_HANDLE) {
-    FileWrite(handleTicks, GetTickCount(), nAsk, nBid);
-  }
 
   priceList[curIndex] = nAsk;
   uint curTime = GetTickCount();
@@ -147,21 +145,11 @@ void OnTick()
     movement -= MathAbs((double)priceList[movementStartIndex] - priceList[m]);
   }
 
-  while(timeList[c] - diffWidth > timeList[diffStartIndex]) {
-    diffStartIndex = (diffStartIndex + 1) % bufSize;
-  }
-  diff = MathAbs((double)priceList[c] - priceList[diffStartIndex]);
-
   int movementNormalized = (int)((double)movement / rate);
-  int diffNormalized = (int)((double)diff / rate);
 
   if (movementNormalized >= movementThreshold) {
     movementAboveThresholdTime = curTime;
   }
-  if (diffNormalized >= diffThreshold) {
-    diffAboveThresholdTime = curTime;
-  }
-  
 
   bool b;
   b = (movementAboveThresholdTime != 0 && curTime < movementAboveThresholdTime + movementWait);
@@ -169,14 +157,10 @@ void OnTick()
     Print("Overspeed Mode: " + (b ? "On" : "Off"));
     isMovementAboveThreshold = b;
   }
-  b = (diffAboveThresholdTime != 0 && curTime < diffAboveThresholdTime + diffWait);
-  if (b != isDiffAboveThreshold) {
-    Print("Diff Mode: " + (b ? "On" : "Off"));
-    isDiffAboveThreshold = b;
-  }
   
   bool spreadIsWide = Ask > Bid + 0.009;
-  if (spreadIsWide || isMovementAboveThreshold || isDiffAboveThreshold) {
+  if (spreadIsWide || isMovementAboveThreshold) {
+    FileWrite(handleTicks, GetTickCount(), nAsk, nBid);
     return;
   }
   if (order.isActive) {
@@ -202,19 +186,27 @@ void OnTick()
         if (order.tickets[i] == INVALID_HANDLE) {
           continue;
         }
+        bool orderClosed = false;
         if (OrderSelect(order.tickets[i], SELECT_BY_TICKET)) {
-          if (OrderCloseTime() == 0) {
+          if (OrderCloseTime()) {
+            orderClosed = true;
+          }
+          else {
             bool ret = OrderClose(
                                   OrderTicket(),
                                   OrderLots(),
                                   OrderType() == OP_BUY ? Bid : Ask,
                                   10,
                                   clrWhite);
-            if (ret == false) {
+            if (ret) {
+              orderClosed = true;
+            }
+            else {
               Print("オーダークローズエラー：エラーコード=", GetLastError());
             }
           }
-          if (OrderCloseTime()) {
+
+          if (orderClosed) {
             Print("オーダークローズ、利益：", OrderProfit());
             FileWrite(handleOrder, "Order close, time:" + IntegerToString(GetTickCount()) + 
                       " profit: " + DoubleToStr(OrderProfit()));
@@ -225,9 +217,11 @@ void OnTick()
       order.isActive = false;
     }
     if (order.isActive) {
+      FileWrite(handleTicks, GetTickCount(), nAsk, nBid);
       return;
     }
   }
+  string featureStr;
   for (uint i = 0; i < ArraySize(timeWidths); ++i) {
     uint startTime = curTime - timeWidths[i] * timeScale + 1;
     int minRelPrice = 0;
@@ -244,7 +238,7 @@ void OnTick()
         isOk = 0;
         break;
       }
-      int relPrice = priceList[j] - nAsk;
+      int relPrice = int((double)priceList[j] / rate) - priceToNormalize;
       if (relPrice < minRelPrice) {
         minRelPrice = relPrice;
       }
@@ -280,7 +274,7 @@ void OnTick()
         break;
       }
       uint time = timeList[j];
-      uint price = priceList[j];
+      uint price = int((double)priceList[j] / rate);
       int timeDiff = time - startTime;
       int priceDiff = price - minPrice;
       int timeIndex = timeDiff / (timeWidths[i] * timeScale / bitWidth);
@@ -297,10 +291,11 @@ void OnTick()
     for (uint k = 0; k < (uint)byteCount; ++k) {
       bitPatternStr += StringFormat("%02x", bits[k]);
     }
+    featureStr += timeWidths[i] + ":" + priceFactor + ":" + bitPatternStr + (i < ArraySize(timeWidths) - 1 ? "/" : ":");
     for (uint k = 0; k < (uint)ArraySize(features); ++k) {
       Feature f = features[k];
       double lossCutWidth = 0.05;
-      if (orderOnceForDebug || order.tickets[0] == 0 &&
+      if (orderOnceForDebug || order.tickets[0] == INVALID_HANDLE &&
           timeWidths[i] >= f.minWidth &&
           timeWidths[i] <= f.maxWidth &&
           priceFactor >= f.minHeight &&
@@ -355,6 +350,7 @@ void OnTick()
       }
     }
   }
+  FileWrite(handleTicks, GetTickCount(), nAsk, nBid, featureStr);
 }
 //+------------------------------------------------------------------+
 //| Timer function                                                   |

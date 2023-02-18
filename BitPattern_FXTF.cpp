@@ -61,19 +61,27 @@ void OnTick()
       if (order.tickets[i] == INVALID_HANDLE) {
         continue;
       }
+      bool orderClosed = false;
       if (OrderSelect(order.tickets[i], SELECT_BY_TICKET)) {
-        if (OrderCloseTime() == 0) {
+        if (OrderCloseTime()) {
+          orderClosed = true;
+        }
+        else {
           bool ret = OrderClose(
                                 OrderTicket(),
                                 OrderLots(),
                                 OrderType() == OP_BUY ? Bid : Ask,
                                 10,
                                 clrWhite);
-          if (ret == false) {
+          if (ret) {
+            orderClosed = true;
+          }
+          else {
             Print("オーダークローズエラー：エラーコード=", GetLastError());
           }
         }
-        if (OrderCloseTime()) {
+
+        if (orderClosed) {
           Print("オーダークローズ、利益：", OrderProfit());
           FileWrite(handleOrder, "Order close, time:" + IntegerToString(GetTickCount()) + 
                     " profit: " + DoubleToStr(OrderProfit()));
