@@ -7,7 +7,7 @@ use IO::Handle;
 
 my $score_threshold = 7;
 my $delay = 3;
-my $result_time_key = 60000;
+my $result_time_key = 120000;
 my $speed_threshold = 1000;
 my $speed_wait = 600000;
 my $order_wait = 300000;
@@ -64,14 +64,10 @@ sub main {
     my $output_file = "$currency/$output_filename";
     open OUT, ">", $output_file or die "$output_file: $!";
     OUT->autoflush();
-    my @counts;
-    my @sums;
-    my @avrs;
     for my $test_file(@test_files) {
-        print OUT "Test file: $test_file\n";
+        print OUT "# Test file: $test_file\n";
         $test_file =~ m{week_(\d{3})};
         my $test_num = $1;
-        my $mode = ($test_num <= $week_2 ? 0 : 1);
         my @data;
         open IN, "<", $test_file or die "$test_file: $!";
         while (<IN>) {
@@ -82,7 +78,9 @@ sub main {
         close IN;
         
         my $speed_over_time = 0;
-        my $last_order_time = 0;
+        for my $feature(@features) {
+            $feature->{"last_order_time"} = 0;
+        }
         for my $i(0..$#data) {
             if ($i >= $delay) {
                 my $time = $data[$i-$delay]->[0];
@@ -93,8 +91,8 @@ sub main {
                 my $past_str = $data[$i-$delay]->[8];
                 my @past_list = map { [split/:/] } split(m{/}, $past_str);
                 for my $past(@past_list) {
-                    my ($width, $height, $bits) = @{$past};
-                    $width /= 10000;
+                    my ($orig_width, $height, $bits) = @{$past};
+                    my $width = $orig_width / 10000;
                     next if not exists $bits_dict{$bits};
                     for my $feature(@features) {
                         if ($bits eq $feature->{"bits"} and
@@ -108,12 +106,18 @@ sub main {
                             die "time not exist: $result_time_key" if not exists $result_dict{$result_time_key};
                             my ($result_score, undef)  = @{$result_dict{$result_time_key}};
                             $result_score = -$result_score if $feature->{"is_sell"};
+                            my $j = $i;
+                            $j-- while $data[$j]->[0] > $time - $orig_width;
+                            my @graph_data = ();
+                            push @graph_data, [@{$data[$j]}[0, 1]] while $data[++$j]->[0] <= $time + 120000;
                             push @{$feature->{"results"}},
                             {
                                 "file" => $test_file,
                                     "test_num" => $test_num,
                                     "time" => $time,
-                                    "score" => $result_score
+                                    "width" => $orig_width,
+                                    "score" => $result_score,
+                                    "graph_data" => \@graph_data
                             };
                             $feature->{"last_order_time"} = $time;
                         }
@@ -123,11 +127,51 @@ sub main {
         }
     }
     close IN;
+    
     for my $feature(@features) {
-        print OUT qq{Feature: $feature->{"orig_str"}\n};
+        my @counts = ();
+        my @sums = ();
+        my @avrs = ();
+        my $bits = $feature->{"bits"};
+        mkdir "temp/$bits" if not -d "temp/$bits";
+        print OUT qq{# Feature: $feature->{"orig_str"}\n};
+        my $count = 0;
         for my $result(@{$feature->{"results"}}) {
-            print OUT qq{$result->{"file"}:$result->{"time"} $result->{"score"}\n};
+            $count++;
+            my $ref = $result->{"graph_data"};
+            my $out_filename = sprintf("temp/$bits/%03d.csv", $count);
+            open OUT_GRAPH, ">", $out_filename or die "$!: $out_filename";
+            for (@{$ref}) {
+                print OUT_GRAPH join(",", $_->[0] - $result->{"time"}, $_->[1])."\n" if $_->[0] <= $result->{"time"};
+            }
+            close OUT_GRAPH;
+            my $out_filename_result = sprintf("temp/$bits/%03d_result.csv", $count);
+            open OUT_GRAPH_RESULT, ">", $out_filename_result or die "$!: $out_filename_result";
+            for (@{$ref}) {
+                print OUT_GRAPH_RESULT join(",", $_->[0] - $result->{"time"}, $_->[1])."\n" if $_->[0] > $result->{"time"};
+            }
+            close OUT_GRAPH_RESULT;
+            my $sum = 0;
+            my $sum2 = 0;
+            for my $i(1..$#{$ref}) {
+                my $time = ($ref->[$i][0] - $ref->[$i-1][0]);
+                my $speed = ($ref->[$i][1] - $ref->[$i-1][1]) / $time;
+                $sum += $speed * $time;
+                $sum2 += $speed ** 2 * $time;
+            }
+            my $avr = $sum / $result->{"width"};
+            my $avr2 = $sum2 / $result->{"width"};
+            my $s = sqrt($avr2 - $avr ** 2);
+            my $test_num = $result->{"test_num"};
+            my $mode = ($test_num <= $week_2 ? 0 : 1);
+            $counts[$mode]++;
+            $sums[$mode] += $result->{"score"};
+            print OUT qq{$result->{"file"} $result->{"time"} $out_filename $avr $s $result->{"score"}\n};
         }
+        for (0..1) {
+            $avrs[$_] = $sums[$_] / $counts[$_] if $counts[$_];
+        }
+        print OUT qq{# $feature->{"orig_str"} count $counts[0] sum $sums[0] avr $avrs[0] / count $counts[1] sum $sums[1] avr $avrs[1]\n};
     }
 }
 

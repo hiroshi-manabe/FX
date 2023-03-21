@@ -45,18 +45,17 @@ struct Feature {
 };
 
 Feature features[] = {
-  {0, 23, 26, 19, 21, "603060606038", "+23-26:19-21:603060606038"},
-  {1, 27, 29, 25, 27, "606020301818", "-27-29:25-27:606020301818"},
-  {1, 21, 24, 21, 24, "01010103021e", "-21-24:21-24:01010103021e"},
-  {1, 24, 28, 17, 20, "406060607010", "-24-28:17-20:406060607010"},
-  {0, 27, 29, 22, 26, "606040703038", "+27-29:22-26:606040703038"},
-  {0, 22, 25, 18, 22, "40e060203018", "+22-25:18-22:40e060203018"},
-  {0, 24, 28, 13, 16, "7030381c0c18", "+24-28:13-16:7030381c0c18"},
-  {1, 24, 27, 12, 16, "030303061e38", "-24-27:12-16:030303061e38"},
-  {0, 29, 30, 23, 27, "607030181818", "+29-30:23-27:607030181818"},
-  {0, 22, 26, 17, 19, "603060607038", "+22-26:17-19:603060607038"},
-  {0, 29, 30, 20, 24, "030306060e18", "+29-30:20-24:030306060e18"},
-  {1, 26, 30, 23, 27, "606040606038", "-26-30:23-27:606040606038"}
+  {1, 27, 29, 17, 21, "0103060c0818", "-27-29:17-21:0103060c0818"},
+  {0, 21, 24, 28, 30, "01010306041c", "+21-24:28-30:01010306041c"},
+  {0, 24, 25, 20, 24, "010103030e18", "+24-25:20-24:010103030e18"},
+  {1, 25, 29, 22, 26, "0103020e1c18", "-25-29:22-26:0103020e1c18"},
+  {1, 23, 25, 22, 26, "030206060c18", "-23-25:22-26:030206060c18"},
+  {0, 21, 24, 22, 26, "01010107061c", "+21-24:22-26:01010107061c"},
+  {0, 25, 28, 15, 17, "602030181808", "+25-28:15-17:602030181808"},
+  {1, 21, 25, 22, 26, "010303070e18", "-21-25:22-26:010303070e18"},
+  {1, 27, 30, 17, 20, "03060e0c0818", "-27-30:17-20:03060e0c0818"},
+  {0, 25, 29, 26, 30, "40c060303818", "+25-29:26-30:40c060303818"},
+  {0, 22, 26, 23, 27, "407010101818", "+22-26:23-27:407010101818"}
 };
 
 int handleOrder = INVALID_HANDLE;
@@ -186,33 +185,9 @@ void OnTick()
         if (order.tickets[i] == INVALID_HANDLE) {
           continue;
         }
-        bool orderClosed = false;
-        if (OrderSelect(order.tickets[i], SELECT_BY_TICKET)) {
-          if (OrderCloseTime()) {
-            orderClosed = true;
-          }
-          else {
-            bool ret = OrderClose(
-                                  OrderTicket(),
-                                  OrderLots(),
-                                  OrderType() == OP_BUY ? Bid : Ask,
-                                  10,
-                                  clrWhite);
-            if (ret) {
-              orderClosed = true;
-            }
-            else {
-              Print("オーダークローズエラー：エラーコード=", GetLastError());
-            }
-          }
-
-          if (orderClosed) {
-            Print("オーダークローズ、利益：", OrderProfit());
-            FileWrite(handleOrder, "Order close, time:" + IntegerToString(GetTickCount()) + 
-                      " profit: " + DoubleToStr(OrderProfit()));
+        Print("オーダークローズ");
+        FileWrite(handleOrder, "Order close, time:" + IntegerToString(GetTickCount()));
             order.tickets[i] = INVALID_HANDLE;
-          }
-        }
       }
       order.isActive = false;
     }
@@ -266,7 +241,7 @@ void OnTick()
       priceFactor = priceFactorMax;
     }
     
-    uint minPrice = nAsk + (minRelPriceBits * priceFactor);
+    uint minPrice = priceToNormalize + (minRelPriceBits * priceFactor);
 
     j = c;
     while (1) {
@@ -315,6 +290,13 @@ void OnTick()
                                     
         double price = f.isSell ? Bid : Ask;
         double closePrice = f.isSell ? Ask : Bid;
+
+        // stub
+        order.tickets[0] = 1;
+        order.isActive = true;
+        // stub end
+
+        /*
         double maxBet = (double)(int(AccountInfoDouble(ACCOUNT_BALANCE) * 0.023 / price) - 1) / 100.0;
         int parts = int((maxBet + 10) / 10);
         double bet = (double)int(maxBet * 10 / parts) / 10.0;
@@ -326,6 +308,7 @@ void OnTick()
                     10,
                     f.isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
                     0);
+          int ticket = 1;
           if (ticket != INVALID_HANDLE) {
             order.tickets[l] = ticket;
             order.isActive = true;
@@ -334,6 +317,7 @@ void OnTick()
             Print("オーダーエラー：エラーコード=", GetLastError());
           }
         }
+        */
         if (order.isActive) {
           string orderStr = "Order, time: " + IntegerToString(GetTickCount()) + 
             " timeWidth: " + IntegerToString(timeWidths[i]) + 

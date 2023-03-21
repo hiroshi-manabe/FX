@@ -11,7 +11,7 @@ sub main {
         print;
         chomp;
         my $bytes = pack("H*", $_);
-        for (my $y = 0; $y < $bit_height; ++$y) {
+        for (my $y = $bit_height - 1; $y >= 0; --$y) {
             for (my $x = 0; $x < $bit_width; ++$x) {
                 my $bit_pos = $y + $x * $bit_height;
                 my $byte_index = $bit_pos >> 3;
