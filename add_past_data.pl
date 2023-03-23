@@ -8,7 +8,7 @@ use MIME::Base64;
 
 
 sub main() {
-    die "command <bit_width> <bit_height> <time_width> ..." if @ARGV < 4;
+    die "command <bit_width> <bit_height> <time_width> ..." if @ARGV < 3;
     my $arg_str = join(" ", @ARGV);
     my $currency;
     while (<currency_??????>) {
