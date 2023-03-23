@@ -3,7 +3,7 @@ php download.php
 ./update.pl
 ./make_week_data.pl 40
 ./add_data.pl 50 120000
-./add_past_data.pl 6 8 210000 220000 230000 240000 250000 260000 270000 280000 290000 300000
+./add_past_data.pl 6 8 120000
 ./test.pl 39 39
 ulimit -n 10240
 ./stat.pl 0 35

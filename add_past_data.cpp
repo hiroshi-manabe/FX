@@ -109,7 +109,6 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
-  int max_speed;
   int bit_width;
   int time_widths[100] = {0};
   int time_factors[100] = {0};
