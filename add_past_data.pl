@@ -2,19 +2,17 @@
 use strict;
 use utf8;
 use open IO => ":utf8", ":std";
+
+use Config::Simple;
 use IO::Handle;
 
-use MIME::Base64;
-
-
 sub main() {
-    die "command <bit_width> <bit_height> <time_width> ..." if @ARGV < 3;
+    die "command <time_width> ..." if @ARGV < 1;
     my $arg_str = join(" ", @ARGV);
-    my $currency;
-    while (<currency_??????>) {
-        m{currency_(.{6})};
-        $currency = $1;
-    }
+
+    my $cfg = new Config::Simple('config.ini');
+    my $currency = $cfg->param('settings.currency_pair');
+    
     my $is_first = 1;
     while (<$currency/weekly_data/week_*.csv>) {
         print "$_\n";

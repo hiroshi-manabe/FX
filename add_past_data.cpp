@@ -105,22 +105,15 @@ int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
   if (argc < 4) {
-    cerr << "Usage: add_past_data <bit_width> <bit_height> <time_width> ...\n";
+    cerr << "Usage: add_past_data <time_width> ...\n";
     exit(-1);
   }
 
-  int bit_width;
   int time_widths[100] = {0};
-  int time_factors[100] = {0};
-  int n = argc - 3;
-  int bit_height;
-  stringstream(argv[1]) >> bit_width;
-  stringstream(argv[2]) >> bit_height;
+  int n = argc - 1;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[3 + i]) >> time_widths[i];
-    time_factors[i] = time_widths[i] / bit_width;
+    stringstream(argv[1 + i]) >> time_widths[i];
   }
-  int byte_count = (bit_width * bit_height - 1) / 8 + 1;
   
   string str;
   vector<string> orig_list;
@@ -138,9 +131,6 @@ int main(int argc, char *argv[]) {
     stringstream(t) >> i;
     price_list.push_back(i);
   }
-  int movement_width = 300000;
-  int movement = 0;
-  int movement_start_index = 0;
 
   int price_to_normalize = 100000;
   
@@ -148,38 +138,17 @@ int main(int argc, char *argv[]) {
     int cur_time = time_list[i];
     int cur_price = price_list[i];
     double rate = (double)cur_price / price_to_normalize;
-    if (i > 0) {
-      movement += abs(cur_price - price_list[i-1]);
-    }
-    while (cur_time - movement_width > time_list[movement_start_index]) {
-      movement_start_index++;
-      movement -= abs(price_list[movement_start_index] - price_list[movement_start_index-1]);
-    }
 
-    int movement_normalized = (int)((double)movement / rate);
-    cout << orig_list[i] << "," << movement_normalized << ",";
-    stringstream ss_bit;
+    cout << orig_list[i] << ",";
     stringstream ss_coeff;
     for (int j = 0; j < n; ++j) {
-      ss_bit << time_widths[j] << ":";
       ss_coeff << time_widths[j] << ":";
       if (cur_time >= time_widths[j] - 1) {
         int start_time = cur_time - time_widths[j] + 1;
-        int min_rel_price = 0;
-        int max_rel_price = 0;
-        unsigned char bits[1024] = { 0 }; // some big number
 
         double X[5] = {0};
         double Y[3] = {0};
         for (int k = i; time_list[k] >= start_time && k >= 0; --k) {
-          int rel_price = int((double)price_list[k] / rate) - price_to_normalize;
-          if (rel_price < min_rel_price) {
-            min_rel_price = rel_price;
-          }
-          else if (rel_price > max_rel_price) {
-            max_rel_price = rel_price;
-          }
-          
           double x = (double)time_list[k] - cur_time;
           double y = (double)price_list[k] / rate - price_to_normalize;
           X[0] += 1;
@@ -200,54 +169,21 @@ int main(int argc, char *argv[]) {
         vector<double> coeffs;
         fitIt(X, Y, 2, coeffs);
         double y_mean = Y[0] / X[0];
-        
-        int max_rel_price_bits = bit_height / 2 - 1;
-        int min_rel_price_bits = -(bit_height / 2);
-        int price_factor_min = (-min_rel_price + -min_rel_price_bits - 1) / -min_rel_price_bits;
-        int price_factor_max = (max_rel_price + max_rel_price_bits - 1) / max_rel_price_bits;
-        int price_factor = 1;
-        if (price_factor_min > price_factor) {
-          price_factor = price_factor_min;
-        }
-        if (price_factor_max > price_factor) {
-          price_factor = price_factor_max;
-        }
-        int min_price = price_to_normalize + (min_rel_price_bits * price_factor);
         double ss_res = 0.0;
         double ss_tot = 0.0;
         
         for (int k = i; time_list[k] >= start_time && k >= 0; --k) {
           int time = time_list[k];
-          int price = int((double)price_list[k] / rate);
-          int time_diff = time - start_time;
-          int price_diff = price - min_price;
-          int time_index = time_diff / time_factors[j];
-          int price_index = price_diff / price_factor;
-          int bit_pos = price_index + time_index * bit_height;
-          int byte_index = bit_pos >> 3;
-          int bit_data = 1 << (bit_pos % 8);
-          if (price_diff >= 0 && price_index < bit_height) {
-            bits[byte_index] |= bit_data;
-          }
-          
-          double x = (double)time_list[k] - cur_time;
-          double y = (double)price_list[k] / rate - price_to_normalize;
+          double price = (double)price_list[k] / rate;
+          double x = (double)time - cur_time;
+          double y = (double)price - price_to_normalize;
           double y_pred = quadratic(x, coeffs[2], coeffs[1], coeffs[0]);
           double t = y - y_pred;
           ss_res += t * t;
           t = y - y_mean;
           ss_tot += t * t;
-          //          if (i % 10000 == 0) {
-          //            cerr << "x " << x << " y " << y << " y_pred " << y_pred << " y_mean " << y_mean << " ss_res " << ss_res << " ss_tot " << ss_tot << "\n";
-          //          }
         }
         double r_squared = 1 - (ss_res / ss_tot);
-        ss_bit << price_factor << ":";
-        for (int k = 0; k < byte_count; ++k) {
-          char buf[3];
-          snprintf(buf, 3, "%02x", bits[k]);
-          ss_bit << buf;
-        }
         ss_coeff.precision(17);
         for (const auto &t : coeffs) {
           ss_coeff << t;
@@ -256,19 +192,12 @@ int main(int argc, char *argv[]) {
         ss_coeff << r_squared;
       }
       else {
-        ss_bit << 0 << ":";
-        const char buf[3] = "ff";
-        for (int k = 0; k < byte_count; ++k) {
-          ss_bit << buf;
-        }
         ss_coeff << "0.0:0.0:0.0:0.0";
       }
       if (j < n - 1) {
-        ss_bit << "/";
         ss_coeff << "/";
       }
     }
-    cout << ss_bit.str() << ",";
     cout << ss_coeff.str() << "\n";
   }
 }
