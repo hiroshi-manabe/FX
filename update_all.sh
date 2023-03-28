@@ -1,12 +1,8 @@
 #!/bin/sh
 php download.php
 ./update.pl
-./make_week_data.pl 40
+./make_week_data.pl 52
 ./add_data.pl 500 30000
 ./add_past_data.pl 6 8 120000
-#./test.pl 39 39
-#ulimit -n 10240
-#./stat.pl 0 35
-#./find_features.pl
-#./sort_features.pl
-#./check_features.pl 32 35 39
+./make_past_data.pl 0 45
+./test.py 46 48
