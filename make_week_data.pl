@@ -3,18 +3,17 @@ use strict;
 use utf8;
 use open IO => ":utf8", ":std";
 
+use Config::Simple;
 use Time::Local qw(timegm);
 
 sub main() {
     die "command <week num>" if @ARGV != 1;
     my $week_num = shift @ARGV;
     
-    my $currency;
-    while (<currency_??????>) {
-        m{currency_(.{6})};
-        $currency = $1;
-    }
+    my $cfg = new Config::Simple('config.ini');
+    my $currency = $cfg->param('settings.currency_pair');
     die "$currency: Not found" if not -d $currency;
+    
     mkdir "$currency/weekly" if not -d "$currency/weekly";
     system("rm $currency/weekly/*");
 
