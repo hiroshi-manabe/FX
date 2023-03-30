@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 use utf8;
 use open qw(:std :utf8);
 use autodie;
@@ -44,11 +44,11 @@ for my $test_file(@test_files) {
     close $fh;
     my $prev_time = 0;
     for my $i (0..$#data) {
-        my @F = split/:/, $data[$i]->[8];
+        my @F = split/:/, $data[$i]->[6];
         my @coeffs = @F[1..3];
         my $fit = $F[4];
         my $result = (split/:/, $data[$i]->[5])[1];
-        if (abs($coeffs[0]) < 3 and $fit > 0.95 and $data[$i]->[0] > $prev_time + $past_width + $future_width) {
+        if (abs($coeffs[0]) < 3 and $fit > 0.94 and $data[$i]->[0] > $prev_time + $past_width + $future_width) {
             my $j = $i;
             $j-- while $data[$j]->[0] >= $data[$i]->[0] - $past_width and $j > 0;
             $j++;

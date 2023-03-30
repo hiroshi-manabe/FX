@@ -104,7 +104,7 @@ double quadratic(double x, double a, double b, double c) {
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 4) {
+  if (argc < 2) {
     cerr << "Usage: add_past_data <time_width> ...\n";
     exit(-1);
   }

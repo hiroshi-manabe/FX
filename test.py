@@ -65,7 +65,7 @@ def find_matching_points(data):
     for i, row in enumerate(data):
         current_week, current_timestamp, _, zero_coef, first_coef, second_coef, r_squared = row
 
-        if abs(zero_coef) < 3 and r_squared >= 0.95:
+        if abs(zero_coef) < 3 and r_squared >= 0.94:
             # Check if there are enough data points
             past_data_points = [dp for dp in data[max(0, i - 120000 // 250):i] if dp[1] >= current_timestamp - 120000]
 
@@ -78,7 +78,7 @@ def find_matching_points(data):
 
     return matching_indices
 
-def k_nearest_neighbors(index, data, past_data, k=5):
+def k_nearest_neighbors(index, data, past_data, k=8):
     # Calculate the distances between the given data point and all past data points
     distances = []
     for i, past_point in enumerate(past_data):
@@ -100,19 +100,26 @@ def k_nearest_neighbors(index, data, past_data, k=5):
             less_than_minus_20 += 1
 
     # Decide whether to buy, sell, or pass based on the counts
-    if greater_than_20 - less_than_minus_20 >= 3:
+    if greater_than_20 - less_than_minus_20 >= 5:
         return "buy"
-    elif less_than_minus_20 - greater_than_20 >= 3:
+    elif less_than_minus_20 - greater_than_20 >= 5:
         return "sell"
     else:
         return "pass"
 
 def process_trade(action, index, data):
     window_size = 100
+    window_time = 15 * 1000
     initial_ask = data[index][2]
     profit = 0
     no_stop_time = 30 * 1000  # 30 seconds in milliseconds
 
+    def find_previous_data_point(i, data):
+        for j in range(i - 1, 0, -1):
+            if data[i][1] - data[j][1] >= window_time:
+                return j
+        return None
+    
     # Skip the first 30 seconds
     i = index
     while i < len(data) - window_size:
@@ -123,8 +130,9 @@ def process_trade(action, index, data):
             i += 1
             continue
 
+        prev_index = find_previous_data_point(i, data)
         current_ask = data[i][2]
-        previous_ask = data[i - window_size][2]
+        previous_ask = data[prev_index][2]
 
         if action == "buy" and current_ask < previous_ask:
             profit = data[i][2] - initial_ask
