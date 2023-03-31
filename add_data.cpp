@@ -52,29 +52,44 @@ int main(int argc, char *argv[]) {
     cout << orig_list[i] << ",";
     int ask = ask_list[i];
     int start_time = time_list[i];
-    int results[10] = {0};
-    int result_times[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-    for (size_t j = 0; j < n; ++j) {
-      for (size_t k = i; k < orig_list.size(); ++k) {
-        if (ask_list[k] >= ask + width) {
-          results[j] = width;
-          result_times[j] = time_list[k];
-          break;
-        }
-        else if (ask_list[k] <= ask - width) {
-          results[j] = -width;
-          result_times[j] = time_list[k];
-          break;
-        }
-        else if (times[j] && (time_list[k] >= start_time + times[j])) {
-          results[j] = ask_list[k] - ask;
-          result_times[j] = time_list[k];
-          break;
+    int results[2][10] = {{0}, {0}};
+    int result_times[2][10] = {
+      {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+      {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}
+    };
+
+    for (int buy_or_sell = 0; buy_or_sell < 2; ++buy_or_sell) {
+      for (size_t j = 0; j < n; ++j) {
+        for (size_t k = i; k < orig_list.size(); ++k) {
+          bool should_exit_trade = false;
+          int full_times = start_time + times[j];
+          int half_times = times[j] / 2;
+
+          if (time_list[k] > full_times) {
+            int index_past_half = k;
+
+            // Find the index for the data point at half_times before the current time.
+            while (time_list[index_past_half] > time_list[k] - half_times) {
+              --index_past_half;
+            }
+
+            int desired_diff = (buy_or_sell == 0) ? 1 : -1;
+
+            if ((ask_list[k] - ask_list[index_past_half]) * desired_diff < 0) {
+              should_exit_trade = true;
+            }
+          }
+
+          if (should_exit_trade) {
+            results[buy_or_sell][j] = (buy_or_sell == 0 ? 1 : -1) * (ask_list[k] - ask);
+            result_times[buy_or_sell][j] = time_list[k];
+            break;
+          }
         }
       }
     }
     for (size_t i = 0; i < n; ++i) {
-      cout << times[i] << ":" << results[i] << ":" << result_times[i];
+      cout << times[i] << ":" << results[i][0] << ":" << result_times[i][0] << ":" << results[i][1] << ":" << result_times[i][1];
       if (i < n - 1) {
         cout << "/";
       }
