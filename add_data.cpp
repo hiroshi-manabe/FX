@@ -15,17 +15,16 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 3 || argc > 12) {
+  if (argc < 2 || argc > 11) {
     exit(-1);
   }
   
-  int n = argc - 2;
+  int n = argc - 1;
   int width = 0;
   int times[10] = {0};
 
-  stringstream(argv[1]) >> width;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[i + 2]) >> times[i];
+    stringstream(argv[i + 1]) >> times[i];
   }
   
   string str;
