@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
           bool should_exit_trade = false;
           int window_time = window_times[j];
 
-          if (time_list[k] > window_time) {
+          if (time_list[k] > start_time + window_time) {
             int index_before_window = k;
 
             // Find the index for the data point at window_time before the current time.
