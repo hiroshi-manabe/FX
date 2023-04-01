@@ -1,6 +1,7 @@
-import os
-import glob
+import argparse
 import configparser
+import glob
+import os
 import sys
 
 def read_config(file_name):
@@ -15,8 +16,8 @@ def find_currency_pair(config):
         print("Currency pair not found in config file")
         return None
 
-def load_past_data(currency):
-    file_path = f"{currency}/past_data.txt"
+def load_past_data(currency_pair):
+    file_path = f"{currency_pair}/past_data.txt"
     data = []
 
     with open(file_path, "r") as file:
@@ -57,7 +58,7 @@ def load_data(currency_pair, start_week, end_week):
 
     return data
 
-def find_matching_points(data):
+def find_matching_points(data, r_squared_threshold=0.94, window_time=120000):
     matching_indices = []
     last_matched_timestamp = None
     last_matched_week = None
@@ -65,20 +66,20 @@ def find_matching_points(data):
     for i, row in enumerate(data):
         current_week, current_timestamp, _, zero_coef, first_coef, second_coef, r_squared = row
 
-        if abs(zero_coef) < 3 and r_squared >= 0.94:
+        if abs(zero_coef) < 3 and r_squared >= r_squared_threshold:
             # Check if there are enough data points
-            past_data_points = [dp for dp in data[max(0, i - 120000 // 250):i] if dp[1] >= current_timestamp - 120000]
+            past_data_points = [dp for dp in data[max(0, i - window_time // 250):i] if dp[1] >= current_timestamp - window_time]
 
-            if len(past_data_points) >= (120000 / 250):
-                # Check if 120 seconds have passed since the last match
-                if last_matched_timestamp is None or current_week != last_matched_week or (current_timestamp - last_matched_timestamp) >= 120000:
+            if len(past_data_points) >= (window_time / 250):
+                # Check if the window time have passed since the last match
+                if last_matched_timestamp is None or current_week != last_matched_week or (current_timestamp - last_matched_timestamp) >= window_time:
                     matching_indices.append(i)
                     last_matched_timestamp = current_timestamp
                     last_matched_week = current_week
 
     return matching_indices
 
-def k_nearest_neighbors(index, data, past_data, k=8):
+def k_nearest_neighbors(index, data, past_data, k=8, threshold=5):
     # Calculate the distances between the given data point and all past data points
     distances = []
     for i, past_point in enumerate(past_data):
@@ -93,42 +94,34 @@ def k_nearest_neighbors(index, data, past_data, k=8):
     greater_than_20 = 0
     less_than_minus_20 = 0
     for _, neighbor_index in nearest_neighbors:
-        value = past_data[neighbor_index][2]  # The 'result after 30 seconds' column
+        value = past_data[neighbor_index][2]  # The 'result' column
         if value >= 20:
             greater_than_20 += 1
         elif value <= -20:
             less_than_minus_20 += 1
 
     # Decide whether to buy, sell, or pass based on the counts
-    if greater_than_20 - less_than_minus_20 >= 5:
+    if greater_than_20 - less_than_minus_20 >= threshold:
         return "buy"
-    elif less_than_minus_20 - greater_than_20 >= 5:
+    elif less_than_minus_20 - greater_than_20 >= threshold:
         return "sell"
     else:
         return "pass"
 
-def process_trade(action, index, data):
-    window_size = 100
-    window_time = 15 * 1000
+def process_trade(action, index, data, past_window_time):
     initial_ask = data[index][2]
     profit = 0
-    no_stop_time = 30 * 1000  # 30 seconds in milliseconds
 
     def find_previous_data_point(i, data):
         for j in range(i - 1, 0, -1):
-            if data[i][1] - data[j][1] >= window_time:
+            if data[i][1] - data[j][1] >= past_window_time:
                 return j
         return None
     
-    # Skip the first 30 seconds
     i = index
-    while i < len(data) - window_size:
+    while i < len(data):
         current_timestamp = data[i][1]
         initial_timestamp = data[index][1]
-
-        if current_timestamp - initial_timestamp < no_stop_time:
-            i += 1
-            continue
 
         prev_index = find_previous_data_point(i, data)
         current_ask = data[i][2]
@@ -145,7 +138,7 @@ def process_trade(action, index, data):
 
     return profit
 
-def process_matching_points(matching_indices, data, past_data):
+def process_matching_points(matching_indices, data, past_data, window_time):
     profit_sum = 0
     trade_count = 0
     for index in matching_indices:
@@ -163,8 +156,9 @@ def process_matching_points(matching_indices, data, past_data):
         
         if knn_result == "pass":
             continue
-        
-        profit = process_trade(knn_result, index, data)
+
+        past_window_time = window_time // 4
+        profit = process_trade(knn_result, index, data, past_window_time)
         print(f"利益: {profit}")
         profit_sum += profit
         trade_count += 1
@@ -175,13 +169,7 @@ def process_matching_points(matching_indices, data, past_data):
     else:
         print("取引なし")
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python load_data.py <start_week> <end_week>")
-        sys.exit(1)
-
-    start_week = int(sys.argv[1])
-    end_week = int(sys.argv[2])
+def main(start_week, end_week, k_value=8, threshold_value=5, r_squared_value=0.94, window_time=120000):
 
     config = read_config("config.ini")
     currency_pair = find_currency_pair(config)
@@ -193,5 +181,19 @@ if __name__ == "__main__":
     else:
         print("No currency pair found in config file")
 
-    matching_indices = find_matching_points(data)
+    matching_indices = find_matching_points(data, r_squared_value)
     process_matching_points(matching_indices, data, past_data)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process trading data")
+    parser.add_argument("start_week", type=int, help="Start week")
+    parser.add_argument("end_week", type=int, help="End week")
+    parser.add_argument("--k_value", type=int, default=8, help="k value for k-NN algorithm")
+    parser.add_argument("--threshold_value", type=int, default=5, help="Threshold value for buy/sell decision")
+    parser.add_argument("--r_squared_value", type=float, default=0.94, help="R-squared threshold value for matching points")
+    parser.add_argument("--window_time", type=int, default=120000, help="Window time in milliseconds")
+
+    args = parser.parse_args()
+
+    main(args.start_week, args.end_week, args.k_value, args.threshold_value, args.r_squared_value, window_time)
+

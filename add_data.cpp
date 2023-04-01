@@ -21,10 +21,10 @@ int main(int argc, char *argv[]) {
   
   int n = argc - 1;
   int width = 0;
-  int times[10] = {0};
+  int window_times[10] = {0};
 
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[i + 1]) >> times[i];
+    stringstream(argv[i + 1]) >> window_times[i];
   }
   
   string str;
@@ -61,20 +61,19 @@ int main(int argc, char *argv[]) {
       for (size_t j = 0; j < n; ++j) {
         for (size_t k = i; k < orig_list.size(); ++k) {
           bool should_exit_trade = false;
-          int full_times = start_time + times[j];
-          int half_times = times[j] / 2;
+          int window_time = window_times[j];
 
-          if (time_list[k] > full_times) {
-            int index_past_half = k;
+          if (time_list[k] > window_time) {
+            int index_before_window = k;
 
-            // Find the index for the data point at half_times before the current time.
-            while (time_list[index_past_half] > time_list[k] - half_times) {
-              --index_past_half;
+            // Find the index for the data point at window_time before the current time.
+            while (time_list[index_before_window] > time_list[k] - window_time) {
+              --index_before_window;
             }
 
             int desired_diff = (buy_or_sell == 0) ? 1 : -1;
 
-            if ((ask_list[k] - ask_list[index_past_half]) * desired_diff < 0) {
+            if ((ask_list[k] - ask_list[index_before_window]) * desired_diff < 0) {
               should_exit_trade = true;
             }
           }
@@ -87,9 +86,9 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-    for (size_t i = 0; i < n; ++i) {
-      cout << times[i] << ":" << results[i][0] << ":" << result_times[i][0] << ":" << results[i][1] << ":" << result_times[i][1];
-      if (i < n - 1) {
+    for (size_t j = 0; j < n; ++j) {
+      cout << window_times[j] << ":" << results[0][j] << ":" << result_times[0][j] << ":" << results[1][j] << ":" << result_times[1][j];
+      if (j < n - 1) {
         cout << "/";
       }
     }
