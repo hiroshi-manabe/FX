@@ -117,11 +117,12 @@ def process_trade(action, index, data, past_window_time):
             if data[i][1] - data[j][1] >= past_window_time:
                 return j
         return None
-    
-    i = index
+
     while i < len(data):
         current_timestamp = data[i][1]
         initial_timestamp = data[index][1]
+        if current_timestamp < initial_timestamp + past_window_time:
+            continue
 
         prev_index = find_previous_data_point(i, data)
         current_ask = data[i][2]
@@ -169,13 +170,12 @@ def process_matching_points(matching_indices, data, past_data, window_time):
     else:
         print("取引なし")
 
-def main(start_week, end_week, k_value=8, threshold_value=5, r_squared_value=0.94, window_time=120000):
-
+def main(start_week, end_week, k_value=8, threshold_value=5):
     config = read_config("config.ini")
     currency_pair = find_currency_pair(config)
 
     if currency_pair is not None:
-        past_data = load_past_data(currency_pair)
+        train_data, past_data = load_past_data(currency_pair)
         data = load_data(currency_pair, start_week, end_week)
 
     else:
