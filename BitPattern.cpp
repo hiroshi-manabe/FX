@@ -16,12 +16,7 @@ uint bitHeight = 8;
 uint byteCount = 6;
 uint checkInterval = 30000;
 double minProfit = 0.000;
-int movementWidth = 300000;
-int movement = 0;
-int movementStartIndex = 0;
 int priceToNormalize = 100000;
-int movementThreshold = 1200;
-int movementWait = 600000;
 
 struct OrderInfo {
   int tickets[100];
@@ -100,8 +95,85 @@ void OnDeinit(const int reason)
   if (handleTicks != INVALID_HANDLE) {
     FileClose(handleTicks);
   }
-  
 }
+
+bool fitIt(const double &X[], const double &Y[], double &coeffs[])
+{
+   int n = 2;
+   int np1 = n + 1;
+   int np2 = n + 2;
+   int tnp1 = 2 * n + 1;
+   double tmp;
+
+   double a[3] = {0};
+
+   double B[3][4] = {0};
+
+   for (int i = 0; i <= n; ++i)
+   {
+      for (int j = 0; j <= n; ++j)
+      {
+         B[i][j] = X[i + j];
+      }
+   }
+
+   for (int i = 0; i <= n; ++i)
+   {
+      B[i][np1] = Y[i];
+   }
+
+   n += 1;
+   int nm1 = n - 1;
+
+   for (int i = 0; i < n; ++i)
+   {
+      for (int k = i + 1; k < n; ++k)
+      {
+         if (B[i][i] < B[k][i])
+         {
+            for (int j = 0; j <= n; ++j)
+            {
+               tmp = B[i][j];
+               B[i][j] = B[k][j];
+               B[k][j] = tmp;
+            }
+         }
+      }
+   }
+
+   for (int i = 0; i < nm1; ++i)
+   {
+      for (int k = i + 1; k < n; ++k)
+      {
+         double t = B[k][i] / B[i][i];
+         for (int j = 0; j <= n; ++j)
+         {
+            B[k][j] -= t * B[i][j];
+         }
+      }
+   }
+
+   for (int i = nm1; i >= 0; --i)
+   {
+      a[i] = B[i][n];
+      for (int j = 0; j < n; ++j)
+      {
+         if (j != i)
+         {
+            a[i] -= B[i][j] * a[j];
+         }
+      }
+      a[i] /= B[i][i];
+   }
+
+   for (int i = 0; i < 3; ++i)
+   {
+      coeffs[i] = a[i];
+   }
+
+   return true;
+}
+
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
@@ -136,25 +208,6 @@ void OnTick()
   
   if (priceList[p]) {
     movement += MathAbs((double)priceList[c] - priceList[p]);
-  }
-  
-  while (timeList[c] - movementWidth > timeList[movementStartIndex]) {
-    int m = movementStartIndex;
-    movementStartIndex = (movementStartIndex + 1) % bufSize;
-    movement -= MathAbs((double)priceList[movementStartIndex] - priceList[m]);
-  }
-
-  int movementNormalized = (int)((double)movement / rate);
-
-  if (movementNormalized >= movementThreshold) {
-    movementAboveThresholdTime = curTime;
-  }
-
-  bool b;
-  b = (movementAboveThresholdTime != 0 && curTime < movementAboveThresholdTime + movementWait);
-  if (b != isMovementAboveThreshold) {
-    Print("Overspeed Mode: " + (b ? "On" : "Off"));
-    isMovementAboveThreshold = b;
   }
   
   bool spreadIsWide = Ask > Bid + 0.009;
@@ -196,12 +249,8 @@ void OnTick()
       return;
     }
   }
-  string featureStr;
   for (uint i = 0; i < ArraySize(timeWidths); ++i) {
     uint startTime = curTime - timeWidths[i] * timeScale + 1;
-    int minRelPrice = 0;
-    int maxRelPrice = 0;
-    uchar bits[1024] = { 0 };
     uint j = c;
     bool isOk = true;
     
@@ -213,13 +262,6 @@ void OnTick()
         isOk = 0;
         break;
       }
-      int relPrice = int((double)priceList[j] / rate) - priceToNormalize;
-      if (relPrice < minRelPrice) {
-        minRelPrice = relPrice;
-      }
-      else if (relPrice > maxRelPrice) {
-        maxRelPrice = relPrice;
-      }
       j = (j + bufSize - 1) % bufSize;
     }
     
@@ -227,21 +269,6 @@ void OnTick()
       continue;
     }
     
-    int maxRelPriceBits = bitHeight / 2 - 1;
-    int minRelPriceBits = -(bitHeight / 2);
-    int priceFactorMin = (-minRelPrice + -minRelPriceBits - 1) / -minRelPriceBits;
-    int priceFactorMax = (maxRelPrice + maxRelPriceBits - 1) / maxRelPriceBits;
-    int priceFactor = 1;
-    
-    if (priceFactorMin > priceFactor) {
-      priceFactor = priceFactorMin;
-    }
-    
-    if (priceFactorMax > priceFactor) {
-      priceFactor = priceFactorMax;
-    }
-    
-    uint minPrice = priceToNormalize + (minRelPriceBits * priceFactor);
 
     j = c;
     while (1) {
@@ -251,22 +278,9 @@ void OnTick()
       uint time = timeList[j];
       uint price = int((double)priceList[j] / rate);
       int timeDiff = time - startTime;
-      int priceDiff = price - minPrice;
-      int timeIndex = timeDiff / (timeWidths[i] * timeScale / bitWidth);
-      int priceIndex = priceDiff / priceFactor;
-      int bitPos = priceIndex + timeIndex * bitHeight;
-      int byteIndex = bitPos >> 3;
-      int bitData = 1 << (bitPos % 8);
-      if (priceDiff >= 0 && priceIndex < bitHeight) {
-        bits[byteIndex] |= bitData;
-      }
+      ...
       j = (j + bufSize - 1) % bufSize;
     }
-    string bitPatternStr = "";
-    for (uint k = 0; k < (uint)byteCount; ++k) {
-      bitPatternStr += StringFormat("%02x", bits[k]);
-    }
-    featureStr += timeWidths[i] + ":" + priceFactor + ":" + bitPatternStr + (i < ArraySize(timeWidths) - 1 ? "/" : ":");
     for (uint k = 0; k < (uint)ArraySize(features); ++k) {
       Feature f = features[k];
       double lossCutWidth = 0.05;
