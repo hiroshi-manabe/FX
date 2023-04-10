@@ -29,7 +29,7 @@ foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
                         open my $file, "<", $file_path or die "Cannot open $file_path: $!";
 
                         while (my $line = <$file>) {
-                            if ($line =~ /利益: ([\d\.\-]+)/) {
+                            if ($line =~ /^利益: ([\d\.\-]+)/) {
                                 $total_profit += $1 - 5;
                             }
                         }
