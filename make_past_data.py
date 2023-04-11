@@ -7,7 +7,7 @@ import argparse
 import csv
 import re
 
-def main(window_time, r_squared_value, start_week, end_week, debug):
+def main(r_squared_values, start_week, end_week, debug):
     cfg = ConfigParser()
     cfg.read("config.ini")
     currency = cfg.get("settings", "currency_pair")
@@ -26,15 +26,14 @@ def main(window_time, r_squared_value, start_week, end_week, debug):
     # Sort the list based on week numbers
     test_files.sort()
 
-    past_width = window_time
-    future_width = window_time // 4
-
-    with open(f"{currency}/past_data.txt", "w") as fh_out_result:
-        week_num = 1
-        debug_file_counter = 1
-        for _, test_file in test_files:
+    week_num = 1
+    debug_file_counter = 1
+    os.makedirs(f"{currency}/weekly_digest", exist_ok=True)
+    
+    for _, test_file in test_files:
+        output_filename = os.path.basename(test_file)
+        with open(f"{currency}/weekly_digest/{output_filename}", "w") as fh_out_result:
             print(test_file)
-            fh_out_result.write(f"week {week_num}\n")
             week_num += 1
 
             data = []
@@ -43,55 +42,57 @@ def main(window_time, r_squared_value, start_week, end_week, debug):
                     line[0] = int(line[0])
                     data.append(line)
 
-            prev_time = 0
+            prev_time_dict = defaultdict(lambda: defaultdict(int))
 
             for i in range(len(data)):
                 future_data = data[i][5].split("/")
                 coeffs_data = data[i][6].split("/")
 
-                record = None
-                coeffs_record = None
-                for item in future_data:
-                    if item.startswith(f"{future_width}:"):
-                        record = item
-                        break
-                
-                for item in coeffs_data:
-                    if item.startswith(f"{window_time}:"):
-                        coeffs_record = item
-                        break
+                for record, coeffs_record in zip(future_data, coeffs_data):
+                    future_width, buy_profit, end_time_buy, sell_profit, end_time_sell = map(float, record.split(":"))
+                    future_width = int(future_width)
+                    l = list(map(float, coeffs_record.split(":")))
+                    past_width = int(l[0])
+                    coeffs = l[1:4]
+                    fit = l[4]
 
-                if record is not None and coeffs_record is not None:
-                    buy_profit, end_time_buy, sell_profit, end_time_sell = map(float, record.split(":")[1:])
-                    coeffs = list(map(float, coeffs_record.split(":")[1:4]))
-                    fit = float(coeffs_record.split(":")[4])
+                    density_checked = False
+                    density_ok = False
+                    for r_squared_value in r_squared_values:
+                        if abs(coeffs[0]) < 3 and fit > r_squared_value and data[i][0] > prev_time_dict[past_width][r_squared_value] + past_width + future_width:
+                            if not density_checked:
+                                density_checked = True
+                                j = i
+                                while data[j][0] >= data[i][0] - past_width and j > 0:
+                                    j -= 1
+                                j += 1
 
-                    if abs(coeffs[0]) < 3 and fit > r_squared_value and data[i][0] > prev_time + past_width + future_width:
-                        j = i
-                        while data[j][0] >= data[i][0] - past_width and j > 0:
-                            j -= 1
-                        j += 1
+                                if i == j or past_width / (i - j) > 250:
+                                    density_ok = False
+                                    continue
+                                else:
+                                    density_ok = True
+                            else:
+                                if not density_ok:
+                                    continue
+                                
 
-                        if i == j or past_width / (i - j) > 250:
-                            continue
+                            if debug:
+                                temp_file = f"temp/{debug_file_counter:03d}.csv"
+                                with open(temp_file, "w") as temp_csv:
+                                    temp_csv_writer = csv.writer(temp_csv)
+                                    for row in data[j:i+future_width+1]:
+                                        temp_csv_writer.writerow([row[0], row[1]])
+                                debug_file_counter += 1
 
-                        if debug:
-                            temp_file = f"temp/{debug_file_counter:03d}.csv"
-                            with open(temp_file, "w") as temp_csv:
-                                temp_csv_writer = csv.writer(temp_csv)
-                                for row in data[j:i+future_width+1]:
-                                    temp_csv_writer.writerow([row[0], row[1]])
-                            debug_file_counter += 1
+                            fh_out_result.write(f"{past_width},{r_squared_value},{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
+                            prev_time_dict[past_width][r_squared_value] = data[i][0]
 
-                        fh_out_result.write(f"{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
-                        prev_time = data[i][0]
-                            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--window_time", type=int, default=120000, help="window time value")
-    parser.add_argument("--r_squared_value", type=float, default=0.94, help="r squared value")
+    parser.add_argument("--r_squared_values", type=float, nargs='+', default=[0.94], help="list of r squared values")
     parser.add_argument("start_week", type=int, nargs='?', default=None, help="start week")
     parser.add_argument("end_week", type=int, nargs='?', default=None, help="end week")
     parser.add_argument("--debug", action="store_true", help="write debug files to temp directory")
     args = parser.parse_args()
-    main(args.window_time, args.r_squared_value, args.start_week, args.end_week, args.debug)
+    main(args.r_squared_values, args.start_week, args.end_week, args.debug)
