@@ -3,12 +3,14 @@ import argparse
 import configparser
 import glob
 import os
+import re
 import sys
 
 def read_config(file_name):
     config = configparser.ConfigParser()
     config.read(file_name)
     return config
+
 
 def find_currency_pair(config):
     try:
@@ -17,31 +19,6 @@ def find_currency_pair(config):
         print("Currency pair not found in config file")
         return None
 
-def load_past_data(filename, start_train_week, end_train_week, start_dev_week, end_dev_week):
-    with open(filename, 'r') as f:
-        lines = f.readlines()
-    
-    data = {}
-    current_week = 0
-    for line in lines:
-        if "week" in line:
-            current_week = int(line.strip().split(" ")[1])
-            data[current_week] = []
-        else:
-            data[current_week].append([float(x) for x in line.strip().split(',')])
-    
-    if end_train_week > max(data.keys()) or end_dev_week > max(data.keys()):
-        raise ValueError("Specified week range exceeds the total number of weeks in the data.")
-
-    train_data = []
-    for week in range(start_train_week, end_train_week + 1):
-        train_data.extend(data[week])
-
-    dev_data = []
-    for week in range(start_dev_week, end_dev_week + 1):
-        dev_data.extend(data[week])
-
-    return train_data, dev_data
 
 def process_matching_points(train_data, dev_data, k, threshold):
     profit_sum = 0
@@ -99,16 +76,38 @@ def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, thresh
         return action
     else:
         return "pass"
-        
-def main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value=8, threshold_value=5):
+
+    
+def load_data_from_files(directory, start_week, end_week, window_time, r_squared_value):
+    data = []
+    for week in range(start_week, end_week + 1):
+        file_path = os.path.join(directory, f"week_{week:03d}_*.csv")
+        files = glob.glob(file_path)
+
+        if not files:
+            raise ValueError(f"No data file found for week {week}")
+        if len(files) > 1:
+            raise ValueError(f"Multiple files found for week {week}: {files}")
+
+        with open(files[0], 'r') as f:
+            lines = f.readlines()
+            week_data = [list(map(float, line.strip().split(','))) for line in lines]
+            filtered_week_data = [row[2:] for row in week_data if row[0] == window_time and row[1] == r_squared_value]
+            data.extend(filtered_week_data)
+    return data
+
+
+def main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value=8, threshold_value=5, window_time=60000, r_squared_value=0.95):
     config = read_config("config.ini")
     currency_pair = find_currency_pair(config)
-    
+    currency_pair_directory = os.path.join(currency_pair, "weekly_digest")
+
     if currency_pair is not None:
-        file_path = f"{currency_pair}/past_data.txt"
-        train_data, dev_data = load_past_data(file_path, start_train_week, end_train_week, start_dev_week, end_dev_week)
-        
+        train_data = load_data_from_files(currency_pair_directory, start_train_week, end_train_week, window_time, r_squared_value)
+        dev_data = load_data_from_files(currency_pair_directory, start_dev_week, end_dev_week, window_time, r_squared_value)
+
     process_matching_points(train_data, dev_data, k_value, threshold_value)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process trading data")
@@ -118,7 +117,8 @@ if __name__ == "__main__":
     parser.add_argument("end_dev_week", type=int, help="End dev week")
     parser.add_argument("--k_value", type=int, default=8, help="k value for k-NN algorithm")
     parser.add_argument("--threshold_value", type=int, default=5, help="Threshold value for buy/sell decision")
+    parser.add_argument("--window_time", type=int, default=60000, help="Window time value for filtering data")
+    parser.add_argument("--r_squared_value", type=float, default=0.95, help="R-squared value for filtering data")
     args = parser.parse_args()
 
-    main(args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value)
-
+    main(args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value, args.window_time, args.r_squared_value)
