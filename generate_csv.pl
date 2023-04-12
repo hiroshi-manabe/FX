@@ -52,15 +52,15 @@ foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
             for my $k_value (5 .. 10) {
                 if ($threshold_value < $k_value) {
                     my @profits;
-                    my $week = 1;
+                    my $week = 0;
 
-                    while ($week <= 22) {
+                    while ($week <= 21) {
                         my $file_path = sprintf("%s/%05d/%.4f/%02d/result_%02d_%02d.txt", $root_directory, $window_time, $r_squared_value, $week, $k_value, $threshold_value);
                         open my $file, "<", $file_path or die "Cannot open $file_path: $!";
 
                         while (my $line = <$file>) {
                             if ($line =~ /^利益: ([\d\.\-]+)/) {
-                                push @profits, $1 - 5;
+                                push @profits, $1 - 8;
                             }
                         }
 
@@ -82,7 +82,7 @@ foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
                         $std_dev = sqrt($variance) / $correction_factor;
                     }
 
-                    my $key = "$r_squared_value/$k_value/$threshold_value";
+                    my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
                     $results{$key} = [$count, $average, $std_dev];
                 }
             }
@@ -90,7 +90,7 @@ foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
 
         foreach my $key (sort keys %results) {
             my ($count, $average, $std_dev) = @{$results{$key}};
-            print $output_file "$key\t$count\t$average\t$std_dev\n";
+            print $output_file "$key,$count,$average,$std_dev\n";
         }
     }
 
