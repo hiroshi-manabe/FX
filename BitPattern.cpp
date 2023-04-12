@@ -9,49 +9,21 @@ uint curIndex = 0;
 uint prevIndex = 0;
 uint priceList[10000];
 uint timeList[10000];
-uint timeWidths[] = {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
-uint timeScale = 10000;
-uint bitWidth = 6;
-uint bitHeight = 8;
-uint byteCount = 6;
-uint checkInterval = 30000;
 double minProfit = 0.000;
 int priceToNormalize = 100000;
 
 struct OrderInfo {
   int tickets[100];
   uint time;
-  uint prevChecked;
-  double prevPrice;
+  uint timeWidth;
+  double coeffs[3];
+  double price;
   bool isSell;
   bool isActive;
 };
 
 OrderInfo order;
 
-struct Feature {
-  bool isSell;
-  uint minWidth;
-  uint maxWidth;
-  uint minHeight;
-  uint maxHeight;
-  string bitPatternStr;
-  string origStr;
-};
-
-Feature features[] = {
-  {1, 27, 29, 17, 21, "0103060c0818", "-27-29:17-21:0103060c0818"},
-  {0, 21, 24, 28, 30, "01010306041c", "+21-24:28-30:01010306041c"},
-  {0, 24, 25, 20, 24, "010103030e18", "+24-25:20-24:010103030e18"},
-  {1, 25, 29, 22, 26, "0103020e1c18", "-25-29:22-26:0103020e1c18"},
-  {1, 23, 25, 22, 26, "030206060c18", "-23-25:22-26:030206060c18"},
-  {0, 21, 24, 22, 26, "01010107061c", "+21-24:22-26:01010107061c"},
-  {0, 25, 28, 15, 17, "602030181808", "+25-28:15-17:602030181808"},
-  {1, 21, 25, 22, 26, "010303070e18", "-21-25:22-26:010303070e18"},
-  {1, 27, 30, 17, 20, "03060e0c0818", "-27-30:17-20:03060e0c0818"},
-  {0, 25, 29, 26, 30, "40c060303818", "+25-29:26-30:40c060303818"},
-  {0, 22, 26, 23, 27, "407010101818", "+22-26:23-27:407010101818"}
-};
 
 int handleOrder = INVALID_HANDLE;
 int handleTicks = INVALID_HANDLE;
@@ -174,6 +146,26 @@ bool fitIt(const double &X[], const double &Y[], double &coeffs[])
    return true;
 }
 
+void setTimeList(uint curIndex, uint value) {
+  uint bufSize = ArraySize(timeList);
+  timeList[curIndex % bufSize] = value;
+}
+
+uint getTimeList(uint curIndex) {
+  uint bufSize = ArraySize(timeList);
+  return timeList[curIndex % bufSize];
+}
+
+void setPriceList(uint curIndex, double value) {
+  uint bufSize = ArraySize(priceList);
+  priceList[curIndex % bufSize] = value;
+}
+
+double getPriceList(uint curIndex) {
+  uint bufSize = ArraySize(priceList);
+  return (double)priceList[curIndex % bufSize];
+}
+
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
@@ -196,19 +188,13 @@ void OnTick()
     handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
   }
 
-  priceList[curIndex] = nAsk;
+  setPriceList(curIndex, nAsk);
   uint curTime = GetTickCount();
-  timeList[curIndex] = curTime;
-  uint bufSize = ArraySize(priceList);
-  uint c = curIndex;
-  uint p = (curIndex + bufSize - 1) % bufSize;
-  curIndex = (curIndex + 1) % bufSize;
+  setTimeList(curIndex, curTime);
+  prevIndex = curIndex - 1;
+  curIndex++;
 
   double rate = (double)nAsk / priceToNormalize;
-  
-  if (priceList[p]) {
-    movement += MathAbs((double)priceList[c] - priceList[p]);
-  }
   
   bool spreadIsWide = Ask > Bid + 0.009;
   if (spreadIsWide || isMovementAboveThreshold) {
@@ -217,7 +203,8 @@ void OnTick()
   }
   if (order.isActive) {
     bool closeFlag = false;
-    if (curTime > order.time + order.prevChecked + checkInterval) {
+    if (curTime > order.time + order.timeWidth / 4) {
+      ...
       if ((!order.isSell &&
            Ask <= order.prevPrice + minProfit) ||
           (order.isSell &&
@@ -250,19 +237,18 @@ void OnTick()
     }
   }
   for (uint i = 0; i < ArraySize(timeWidths); ++i) {
-    uint startTime = curTime - timeWidths[i] * timeScale + 1;
-    uint j = c;
+    uint startTime = curTime - timeWidths[i] + 1;
+    uint j = curTime;
     bool isOk = true;
     
     while (1) {
-      if (timeList[j] && timeList[j] < startTime) {
+      if (getTimeList(j) < startTime) {
         break;
-      }
-      if (priceList[j] == 0 || timeList[j] > curTime) {
-        isOk = 0;
-        break;
-      }
-      j = (j + bufSize - 1) % bufSize;
+      } 
+      uint time = getTimeList(j);
+      uint price = int((double)getPriceList(j) / rate);
+      int timeDiff = time - startTime;
+      j--;
     }
     
     if (!isOk && !orderOnceForDebug) {
@@ -278,7 +264,6 @@ void OnTick()
       uint time = timeList[j];
       uint price = int((double)priceList[j] / rate);
       int timeDiff = time - startTime;
-      ...
       j = (j + bufSize - 1) % bufSize;
     }
     for (uint k = 0; k < (uint)ArraySize(features); ++k) {
