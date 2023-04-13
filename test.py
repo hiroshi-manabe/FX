@@ -20,6 +20,26 @@ def find_currency_pair(config):
         return None
 
 
+def compute_mean_std(train_data):
+    mean_first_coef = sum(row[0] for row in train_data) / len(train_data)
+    mean_second_coef = sum(row[1] for row in train_data) / len(train_data)
+    
+    std_first_coef = (sum((row[0] - mean_first_coef) ** 2 for row in train_data) / len(train_data)) ** 0.5
+    std_second_coef = (sum((row[1] - mean_second_coef) ** 2 for row in train_data) / len(train_data)) ** 0.5
+    
+    return mean_first_coef, std_first_coef, mean_second_coef, std_second_coef
+
+
+def normalize_data(data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef):
+    normalized_data = []
+    for row in data:
+        normalized_first_coef = (row[0] - mean_first_coef) / std_first_coef
+        normalized_second_coef = (row[1] - mean_second_coef) / std_second_coef
+        normalized_row = [normalized_first_coef, normalized_second_coef, row[2], row[3]]
+        normalized_data.append(normalized_row)
+    return normalized_data
+
+
 def process_matching_points(train_data, dev_data, k, threshold):
     profit_sum = 0
     trade_count = 0
@@ -105,6 +125,13 @@ def main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value
     if currency_pair is not None:
         train_data = load_data_from_files(currency_pair_directory, start_train_week, end_train_week, window_time, r_squared_value)
         dev_data = load_data_from_files(currency_pair_directory, start_dev_week, end_dev_week, window_time, r_squared_value)
+
+        # Compute mean and standard deviation for the first and second coefficients in the training data
+        mean_first_coef, std_first_coef, mean_second_coef, std_second_coef = compute_mean_std(train_data)
+
+        # Normalize the first and second coefficients in the training and development data
+        train_data = normalize_data(train_data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef)
+        dev_data = normalize_data(dev_data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef)
 
     process_matching_points(train_data, dev_data, k_value, threshold_value)
 

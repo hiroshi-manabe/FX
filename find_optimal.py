@@ -36,20 +36,23 @@ data = input_line.split(',')
 label = data[0]
 trials, avg_pl, std_dev = map(float, data[1:])
 
-desired_std_dev = 20
+desired_std_dev = 0.2
 scaling_factor = desired_std_dev / std_dev
 
-initial_principal = 100
+initial_principal = 1
 
-adjusted_avg_pl = avg_pl / scaling_factor
-adjusted_std_dev = std_dev / scaling_factor
+adjusted_avg_pl = avg_pl * scaling_factor
+adjusted_std_dev = std_dev * scaling_factor
 
 final_expected_avg_value = initial_principal + adjusted_avg_pl
 optimal_f = binary_search(final_expected_avg_value, adjusted_std_dev)
 final_f = optimal_f * scaling_factor
 
-outcomes = simulate_log_return(final_expected_avg_value, adjusted_std_dev)
-expected_log_value = calculate_log_return(final_f, outcomes)
+final_mean = initial_principal + avg_pl * final_f
+final_std_dev = std_dev * final_f
+
+outcomes = simulate_log_return(final_mean, final_std_dev)
+expected_log_value = calculate_log_return(1, outcomes)
 
 print("Optimal betting fraction:", final_f)
 print("Expected log value of the result:", expected_log_value)
