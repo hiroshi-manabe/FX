@@ -29,6 +29,10 @@ def main(r_squared_values, start_week, end_week, debug):
     week_num = 1
     debug_file_counter = 1
     os.makedirs(f"{currency}/weekly_digest", exist_ok=True)
+
+    for file in os.listdir(f"{currency}/weekly_digest"):
+        if re.match(r"week_\d{3}_\d{8}\.csv", file):
+            os.remove(os.path.join(f"{currency}/weekly_digest", file))
     
     for _, test_file in test_files:
         output_filename = os.path.basename(test_file)
@@ -85,7 +89,7 @@ def main(r_squared_values, start_week, end_week, debug):
                                         temp_csv_writer.writerow([row[0], row[1]])
                                 debug_file_counter += 1
 
-                            fh_out_result.write(f"{past_width},{r_squared_value},{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
+                            fh_out_result.write(f"{data[i][0]},{past_width},{r_squared_value},{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
                             prev_time_dict[past_width][r_squared_value] = data[i][0]
 
 if __name__ == "__main__":

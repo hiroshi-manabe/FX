@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
+import configparser
+import csv
 import numpy as np
+import os
+
+def read_config(file_name):
+    config = configparser.ConfigParser()
+    config.read(file_name)
+    return config
+
+def find_currency_pair(config):
+    try:
+        return config.get("settings", "currency_pair")
+    except (configparser.NoSectionError, configparser.NoOptionError):
+        print("Currency pair not found in config file")
+        return None
 
 def simulate_log_return(mu, sigma, n_simulations=100000):
     return np.random.normal(mu, sigma, n_simulations)
@@ -31,28 +46,69 @@ def binary_search(mu, sigma, tol=1e-6, max_iter=100):
 
     return (lower + upper) / 2
 
-input_line = input().strip()
-data = input_line.split(',')
-label = data[0]
-trials, avg_pl, std_dev = map(float, data[1:])
+def process_input_line(input_line):
+    data = input_line.split(',')
+    label = data[0]
+    trials, avg_pl, std_dev = map(float, data[1:])
 
-desired_std_dev = 0.2
-scaling_factor = desired_std_dev / std_dev
+    if trials < 10 or avg_pl < 0 or std_dev == 0:
+        return None
 
-initial_principal = 1
+    desired_std_dev = 0.2
+    scaling_factor = desired_std_dev / std_dev
 
-adjusted_avg_pl = avg_pl * scaling_factor
-adjusted_std_dev = std_dev * scaling_factor
+    initial_principal = 1
 
-final_expected_avg_value = initial_principal + adjusted_avg_pl
-optimal_f = binary_search(final_expected_avg_value, adjusted_std_dev)
-final_f = optimal_f * scaling_factor
+    adjusted_avg_pl = avg_pl * scaling_factor
+    adjusted_std_dev = std_dev * scaling_factor
 
-final_mean = initial_principal + avg_pl * final_f
-final_std_dev = std_dev * final_f
+    final_expected_avg_value = initial_principal + adjusted_avg_pl
+    optimal_f = binary_search(final_expected_avg_value, adjusted_std_dev)
+    final_f = optimal_f * scaling_factor
 
-outcomes = simulate_log_return(final_mean, final_std_dev)
-expected_log_value = calculate_log_return(1, outcomes)
+    final_mean = initial_principal + avg_pl * final_f
+    final_std_dev = std_dev * final_f
 
-print("Optimal betting fraction:", final_f)
-print("Expected log value of the result:", expected_log_value)
+    outcomes = simulate_log_return(final_mean, final_std_dev)
+    expected_log_value = calculate_log_return(1, outcomes)
+
+    return label, expected_log_value * trials, final_f
+
+best_training_weeks = None
+best_overall_result = None
+
+config = read_config("config.ini")
+currency_pair = find_currency_pair(config)
+
+for training_weeks in range(20, 21, 5):
+    root_directory = f"{currency_pair}/results_{training_weeks:02d}"
+    overall_result_for_current_training_weeks = 0
+    
+    for window_time in [60000, 120000, 180000, 240000, 300000]:
+        input_file_path = f"{root_directory}/{window_time}.csv"
+
+        if not os.path.exists(input_file_path):
+            continue
+
+        with open(input_file_path, 'r') as input_file:
+            csv_reader = csv.reader(input_file)
+            results = []
+
+            for input_line in csv_reader:
+                result = process_input_line(','.join(input_line))
+                if result is not None:
+                    results.append(result)
+
+            if results:
+                best_label_for_current_window_time, best_result_for_current_window_time, best_final_f = max(results, key=lambda x: x[1])
+                overall_result_for_current_training_weeks += best_result_for_current_window_time
+                print(f"Best result for training_weeks {training_weeks}, window_time {window_time}: Label {best_label_for_current_window_time}, Value {best_result_for_current_window_time}, Final_f {best_final_f}")
+
+    print(f"Result for training_weeks {training_weeks}: {overall_result_for_current_training_weeks}")
+
+    if best_overall_result is None or overall_result_for_current_training_weeks > best_overall_result:
+        best_overall_result = overall_result_for_current_training_weeks
+        best_training_weeks = training_weeks
+
+print(f"Best overall training_weeks: {best_training_weeks} with result: {best_overall_result}")
+

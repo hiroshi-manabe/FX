@@ -104,11 +104,9 @@ void OnTick()
   s = FileReadString(handle_signal);
   long tickCount = StringToInteger(s);
   string sellStr = FileReadString(handle_signal);
-  s = FileReadString(handle_signal);  
-  double lossCutWidth = StringToDouble(s);
-  if (lossCutWidth < 0.056) {
-    lossCutWidth = 0.056;
-  }
+  s = FileReadString(handle_signal);
+  double fraction = StringToDouble(s);
+  double lossCutWidth = 0.056;
   string origStr = FileReadString(handle_signal);
   FileClose(handle_signal);
   FileDelete("signal.csv", FILE_COMMON);

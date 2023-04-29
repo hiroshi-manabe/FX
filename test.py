@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
 import argparse
+import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import configparser
+import ctypes
 import glob
 import os
-import re
 import sys
+
+libknn = ctypes.CDLL("./libknn.dylib")
+
+libknn.k_nearest_neighbors.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_double,
+    ctypes.c_double,
+    ctypes.POINTER(ctypes.c_double),
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_int,
+]
+libknn.k_nearest_neighbors.restype = ctypes.c_char_p
+
 
 def read_config(file_name):
     config = configparser.ConfigParser()
@@ -21,11 +37,11 @@ def find_currency_pair(config):
 
 
 def compute_mean_std(train_data):
-    mean_first_coef = sum(row[0] for row in train_data) / len(train_data)
-    mean_second_coef = sum(row[1] for row in train_data) / len(train_data)
+    mean_first_coef = sum(row[1] for row in train_data) / len(train_data)
+    mean_second_coef = sum(row[2] for row in train_data) / len(train_data)
     
-    std_first_coef = (sum((row[0] - mean_first_coef) ** 2 for row in train_data) / len(train_data)) ** 0.5
-    std_second_coef = (sum((row[1] - mean_second_coef) ** 2 for row in train_data) / len(train_data)) ** 0.5
+    std_first_coef = (sum((row[1] - mean_first_coef) ** 2 for row in train_data) / len(train_data)) ** 0.5
+    std_second_coef = (sum((row[2] - mean_second_coef) ** 2 for row in train_data) / len(train_data)) ** 0.5
     
     return mean_first_coef, std_first_coef, mean_second_coef, std_second_coef
 
@@ -33,9 +49,9 @@ def compute_mean_std(train_data):
 def normalize_data(data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef):
     normalized_data = []
     for row in data:
-        normalized_first_coef = (row[0] - mean_first_coef) / std_first_coef
-        normalized_second_coef = (row[1] - mean_second_coef) / std_second_coef
-        normalized_row = [normalized_first_coef, normalized_second_coef, row[2], row[3]]
+        normalized_first_coef = (row[1] - mean_first_coef) / std_first_coef
+        normalized_second_coef = (row[2] - mean_second_coef) / std_second_coef
+        normalized_row = [row[0], normalized_first_coef, normalized_second_coef, row[3], row[4]]
         normalized_data.append(normalized_row)
     return normalized_data
 
@@ -43,26 +59,26 @@ def normalize_data(data, mean_first_coef, std_first_coef, mean_second_coef, std_
 def process_matching_points(train_data, dev_data, k, threshold):
     profit_sum = 0
     trade_count = 0
-    for row in dev_data:
-        first_coef, second_coef, buy_result, sell_result = row
-        
-        knn_buy = k_nearest_neighbors("buy", first_coef, second_coef, train_data, k=k, threshold=threshold)
-        knn_sell = k_nearest_neighbors("sell", first_coef, second_coef, train_data, k=k, threshold=threshold)
+    if len(train_data) >= k:
+        for row in dev_data:
+            timestamp, first_coef, second_coef, buy_result, sell_result = row
+            knn_buy = k_nearest_neighbors("buy", first_coef, second_coef, train_data, k=k, threshold=threshold)
+            knn_sell = k_nearest_neighbors("sell", first_coef, second_coef, train_data, k=k, threshold=threshold)
 
-        if knn_buy == "buy":
-            action = "買い"
-        elif knn_sell == "sell":
-            action = "売り"
-        else:
-            action = "パス"
-        
-        print(f"1次係数: {first_coef}, 2次係数: {second_coef}, アクション: {action}")
+            if knn_buy == "buy":
+                action = "買い"
+            elif knn_sell == "sell":
+                action = "売り"
+            else:
+                action = "パス"
 
-        if action != "パス":
-            profit = buy_result if action == "buy" else sell_result
-            print(f"利益: {profit}")
-            profit_sum += profit
-            trade_count += 1
+            print(f"{int(timestamp)} 1次係数: {first_coef}, 2次係数: {second_coef}, アクション: {action}")
+
+            if action != "パス":
+                profit = buy_result if action == "buy" else sell_result
+                print(f"{int(timestamp)} 利益: {profit}")
+                profit_sum += profit
+                trade_count += 1
 
     if trade_count > 0:
         avr = profit_sum / trade_count
@@ -72,30 +88,24 @@ def process_matching_points(train_data, dev_data, k, threshold):
 
 
 def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, threshold=5):
-    # Calculate the distances between the given data point and all past data points
-    distances = []
-    for i, past_point in enumerate(train_data):
-        distance = (past_point[0] - first_coef) ** 2 + (past_point[1] - second_coef) ** 2
-        distances.append((distance, i))
+    action = action.encode("utf-8")
+    flattened_data = [value for sublist in train_data for value in sublist[1:]]
+    num_data_points = len(train_data)
 
-    # Find the k nearest neighbors
-    distances.sort(key=lambda x: x[0])
-    nearest_neighbors = distances[:k]
+    c_double_array = (ctypes.c_double * len(flattened_data))()
+    for i, value in enumerate(flattened_data):
+        c_double_array[i] = value
 
-    # Count the number of points with a value greater than +20 and less than or equal to -20
-    greater_than_20 = 0
-    less_than_minus_20 = 0
-    for _, neighbor_index in nearest_neighbors:
-        value = train_data[neighbor_index][2 if action == "buy" else 3]  # Use the appropriate column for buy/sell results
-        if value >= 20:
-            greater_than_20 += 1
-        elif value <= -20:
-            less_than_minus_20 += 1
-
-    if greater_than_20 - less_than_minus_20 >= threshold:
-        return action
-    else:
-        return "pass"
+    result = libknn.k_nearest_neighbors(
+        action,
+        first_coef,
+        second_coef,
+        c_double_array,
+        num_data_points,
+        k,
+        threshold,
+    )
+    return result.decode("utf-8")
 
     
 def load_data_from_files(directory, start_week, end_week, window_time, r_squared_value):
@@ -112,7 +122,7 @@ def load_data_from_files(directory, start_week, end_week, window_time, r_squared
         with open(files[0], 'r') as f:
             lines = f.readlines()
             week_data = [list(map(float, line.strip().split(','))) for line in lines]
-            filtered_week_data = [row[2:] for row in week_data if row[0] == window_time and row[1] == r_squared_value]
+            filtered_week_data = [row[:1] + row[3:] for row in week_data if row[1] == window_time and row[2] == r_squared_value]
             data.extend(filtered_week_data)
     return data
 
@@ -136,16 +146,39 @@ def main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value
     process_matching_points(train_data, dev_data, k_value, threshold_value)
 
 
+def process_params(params):
+    start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value, output_file = params
+    with open(output_file, 'w') as f:
+        sys.stdout = f
+        main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value)
+        sys.stdout = sys.__stdout__
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process trading data")
-    parser.add_argument("start_train_week", type=int, help="Start train week")
-    parser.add_argument("end_train_week", type=int, help="End train week")
-    parser.add_argument("start_dev_week", type=int, help="Start dev week")
-    parser.add_argument("end_dev_week", type=int, help="End dev week")
-    parser.add_argument("--k_value", type=int, default=8, help="k value for k-NN algorithm")
-    parser.add_argument("--threshold_value", type=int, default=5, help="Threshold value for buy/sell decision")
-    parser.add_argument("--window_time", type=int, default=60000, help="Window time value for filtering data")
-    parser.add_argument("--r_squared_value", type=float, default=0.95, help="R-squared value for filtering data")
+    parser.add_argument("--stdin", action="store_true", help="Read parameters from standard input instead of a file")
+    parser.add_argument("start_train_week", type=int, nargs="?", help="Start train week")
+    parser.add_argument("end_train_week", type=int, nargs="?", help="End train week")
+    parser.add_argument("start_dev_week", type=int, nargs="?", help="Start dev week")
+    parser.add_argument("end_dev_week", type=int, nargs="?", help="End dev week")
+    parser.add_argument("--k_value", type=int, default=8, nargs="?", help="k value for k-NN algorithm")
+    parser.add_argument("--threshold_value", type=int, default=5, nargs="?", help="Threshold value for buy/sell decision")
+    parser.add_argument("--window_time", type=int, default=60000, nargs="?", help="Window time value for filtering data")
+    parser.add_argument("--r_squared_value", type=float, default=0.95, nargs="?", help="R-squared value for filtering data")
+    parser.add_argument("--num_processes", type=int, default=os.cpu_count(), nargs="?", help="Number of parallel processes to use")
     args = parser.parse_args()
 
-    main(args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value, args.window_time, args.r_squared_value)
+    if args.stdin:
+        params_list = []
+        for line in sys.stdin:
+            values = line.strip().split(",")
+            start_train_week, end_train_week, start_dev_week, end_dev_week = map(int, values[:4])
+            k_value, threshold_value, window_time = map(int, values[4:7])
+            r_squared_value = float(values[7])
+            output_file = values[8]
+            params_list.append((start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value, output_file))
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=args.num_processes) as executor:
+            executor.map(process_params, params_list)
+    else:
+        main(args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value, args.window_time, args.r_squared_value)
