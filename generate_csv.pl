@@ -40,66 +40,71 @@ sub gamma {
     }
 }
 
+if (@ARGV != 1) {
+    print "Usage: perl script_name.pl <last_week>\n";
+    exit;
+}
+
+my $last_week = shift @ARGV;
+
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
 
-for (my $training_weeks = 20; $training_weeks <= 20; $training_weeks += 5) {
-    foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
-        my $root_directory = sprintf("./$currency/results_%02d", $training_weeks);
-        my $output_filename = "${root_directory}/${window_time}.csv";
-        open my $output_file, ">", $output_filename or die "Cannot open $output_filename: $!";
+foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
+    my $root_directory = sprintf("./$currency/results_%02d", $last_week);
+    my $output_filename = "${root_directory}/${window_time}.csv";
+    open my $output_file, ">", $output_filename or die "Cannot open $output_filename: $!";
 
-        foreach my $r_squared_value (map { 0.92 + $_ * 0.0025 } 0 .. 20) {
-            my %results;
+    foreach my $r_squared_value (map { 0.92 + $_ * 0.0025 } 0 .. 20) {
+        my %results;
 
-            for my $threshold_value (1 .. 9) {
-                for my $k_value (5 .. 10) {
-                    if ($threshold_value < $k_value) {
-                        my @profits;
-                        my $week = 32;
+        for my $threshold_value (1 .. 9) {
+            for my $k_value (5 .. 10) {
+                if ($threshold_value < $k_value) {
+                    my @profits;
+                    my $week = $last_week - 19;
 
-                        while ($week <= 51) {
-                            my $file_path = sprintf("%s/%05d/%.4f/%02d/result_%02d_%02d.txt", $root_directory, $window_time, $r_squared_value, $week, $k_value, $threshold_value);
-                            open my $file, "<", $file_path or die "Cannot open $file_path: $!";
+                    while ($week <= $last_week) {
+                        my $file_path = sprintf("%s/%05d/%.4f/%02d/result_%02d_%02d.txt", $root_directory, $window_time, $r_squared_value, $week, $k_value, $threshold_value);
+                        open my $file, "<", $file_path or die "Cannot open $file_path: $!";
 
-                            while (my $line = <$file>) {
-                                if ($line =~ /^\d+ 利益: ([\d\.\-]+)/) {
-                                    my $profit = $1 - 8;
-                                    $profit = 50 if $profit > 50;
-                                    push @profits, $profit;
-                                }
+                        while (my $line = <$file>) {
+                            if ($line =~ /^\d+ 利益: ([\d\.\-]+)/) {
+                                my $profit = $1 - 8;
+                                $profit = 50 if $profit > 50;
+                                push @profits, $profit;
                             }
-
-                            close $file;
-                            $week++;
                         }
 
-                        my $count = scalar @profits;
-                        my ($average, $std_dev) = (0, 0);
-
-                        if ($count > 1) {
-                            my $n = $count;
-                            my $correction_factor = 1;
-                            if ($n < 30) {
-                                $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
-                            }
-                            $average = sum(@profits) / $count;
-                            my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
-                            $std_dev = sqrt($variance) / $correction_factor;
-                        }
-
-                        my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
-                        $results{$key} = [$count, $average, $std_dev];
+                        close $file;
+                        $week++;
                     }
-                }
-            }
 
-            foreach my $key (sort keys %results) {
-                my ($count, $average, $std_dev) = @{$results{$key}};
-                print $output_file "$key,$count,$average,$std_dev\n";
+                    my $count = scalar @profits;
+                    my ($average, $std_dev) = (0, 0);
+
+                    if ($count > 1) {
+                        my $n = $count;
+                        my $correction_factor = 1;
+                        if ($n < 30) {
+                            $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
+                        }
+                        $average = sum(@profits) / $count;
+                        my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
+                        $std_dev = sqrt($variance) / $correction_factor;
+                    }
+
+                    my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
+                    $results{$key} = [$count, $average, $std_dev];
+                }
             }
         }
 
-        close $output_file;
+        foreach my $key (sort keys %results) {
+            my ($count, $average, $std_dev) = @{$results{$key}};
+            print $output_file "$key,$count,$average,$std_dev\n";
+        }
     }
+
+    close $output_file;
 }

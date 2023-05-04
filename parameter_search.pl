@@ -9,20 +9,20 @@ my $currency = $cfg->param('settings.currency_pair');
 
 
 # Check if the command-line arguments are provided
-if (@ARGV != 2) {
-    print "Usage: perl script_name.pl <training_weeks> <loop_iterations>\n";
+if (@ARGV != 3) {
+    print "Usage: perl script_name.pl <last_week> <training_weeks> <loop_iterations>\n";
     exit;
 }
 
 my $commands_file = "commands.txt";
 
-my $training_weeks = $ARGV[0];
-my $loop_iterations = $ARGV[1];
+my $last_week = $ARGV[0];
+my $training_weeks = $ARGV[1];
+my $loop_iterations = $ARGV[2];
 
-my $root_directory = sprintf("./$currency/results_%02d", $training_weeks);
+my $root_directory = sprintf("./$currency/results_%02d", $last_week);
 
 my $development_weeks = 1;
-my $last_week = 51;
 
 my $start_week = $last_week - $training_weeks - $loop_iterations - $development_weeks + 2;
 my $end_week = $last_week - $training_weeks - $development_weeks + 1;

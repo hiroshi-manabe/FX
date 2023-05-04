@@ -74,41 +74,32 @@ def process_input_line(input_line):
 
     return label, expected_log_value * trials, final_f
 
-best_training_weeks = None
-best_overall_result = None
-
 config = read_config("config.ini")
 currency_pair = find_currency_pair(config)
 
-for training_weeks in range(20, 21, 5):
-    root_directory = f"{currency_pair}/results_{training_weeks:02d}"
-    overall_result_for_current_training_weeks = 0
-    
-    for window_time in [60000, 120000, 180000, 240000, 300000]:
-        input_file_path = f"{root_directory}/{window_time}.csv"
+last_week = 39
 
-        if not os.path.exists(input_file_path):
-            continue
+root_directory = f"{currency_pair}/results_{last_week:02d}"
+overall_result_for_current_training_weeks = 0
 
-        with open(input_file_path, 'r') as input_file:
-            csv_reader = csv.reader(input_file)
-            results = []
+for window_time in [60000, 120000, 180000, 240000, 300000]:
+    input_file_path = f"{root_directory}/{window_time}.csv"
 
-            for input_line in csv_reader:
-                result = process_input_line(','.join(input_line))
-                if result is not None:
-                    results.append(result)
+    if not os.path.exists(input_file_path):
+        continue
 
-            if results:
-                best_label_for_current_window_time, best_result_for_current_window_time, best_final_f = max(results, key=lambda x: x[1])
-                overall_result_for_current_training_weeks += best_result_for_current_window_time
-                print(f"Best result for training_weeks {training_weeks}, window_time {window_time}: Label {best_label_for_current_window_time}, Value {best_result_for_current_window_time}, Final_f {best_final_f}")
+    with open(input_file_path, 'r') as input_file:
+        csv_reader = csv.reader(input_file)
+        results = []
 
-    print(f"Result for training_weeks {training_weeks}: {overall_result_for_current_training_weeks}")
+        for input_line in csv_reader:
+            result = process_input_line(','.join(input_line))
+            if result is not None:
+                results.append(result)
 
-    if best_overall_result is None or overall_result_for_current_training_weeks > best_overall_result:
-        best_overall_result = overall_result_for_current_training_weeks
-        best_training_weeks = training_weeks
+        if results:
+            best_label_for_current_window_time, best_result_for_current_window_time, best_final_f = max(results, key=lambda x: x[1])
+            overall_result_for_current_training_weeks += best_result_for_current_window_time
+            print(f"Best result for last_week {last_week}, window_time {window_time}: Label {best_label_for_current_window_time}, Value {best_result_for_current_window_time}, Final_f {best_final_f}")
 
-print(f"Best overall training_weeks: {best_training_weeks} with result: {best_overall_result}")
-
+print(f"Result for last_week {last_week}: {overall_result_for_current_training_weeks}")

@@ -461,7 +461,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
 
     string knn_buy = "";
     string knn_sell = "";
-    string action = "pass";
+    string action = orderOnceForDebug ? "buy" : "pass";
     uint indexBeforeWindow = findIndexBeforeMilliseconds(c, timeWidth);
     
     if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= params[i][1] &&
@@ -487,8 +487,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       }
       prevTime = curTime;
     }
-    if (orderOnceForDebug ||
-        (order.tickets[0] == INVALID_HANDLE && action != "pass")) {
+    if (order.tickets[0] == INVALID_HANDLE && action != "pass") {
       orderOnceForDebug = false;
       if (FileIsExist("signal_close.csv", FILE_COMMON)) {
         FileDelete("signal_close.csv", FILE_COMMON);
@@ -544,6 +543,10 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         else {
           Print("オーダーエラー：エラーコード=", GetLastError());
         }
+      }
+      if (accountBalance == 0) {
+          order.tickets[l] = 0;
+          order.isActive = true;
       }
       if (order.isActive) {
         Print(orderStr);
