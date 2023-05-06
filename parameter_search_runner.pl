@@ -3,8 +3,7 @@
 use strict;
 use warnings;
 
-#for (my $i = 39; $i <= 50; ++$i) {
-for (my $i = 49; $i <= 50; ++$i) {
+for (my $i = 39; $i <= 50; ++$i) {
     print "Running: ./parameter_search.pl $i 20 20\n";
     system("./parameter_search.pl $i 20 20");
 

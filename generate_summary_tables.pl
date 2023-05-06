@@ -8,8 +8,8 @@ use Config::Simple;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
-my @window_times = split /,\s*/, $cfg->param('settings.window_times');
-my @r_squared_values = split /,\s*/, $cfg->param('settings.r_squared_values');
+my @window_times = @{$cfg->param('settings.window_times')};
+my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
 for (my $training_weeks = 5; $training_weeks <= 30; $training_weeks += 5) {
     for my $window_time (@window_times) {
