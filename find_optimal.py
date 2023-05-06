@@ -76,13 +76,15 @@ def process_input_line(input_line):
 
 config = read_config("config.ini")
 currency_pair = find_currency_pair(config)
+window_times = config.get("settings", "window_times")
+window_times_list = [int(x) for x in window_times.split(",")]
 
 last_week = 39
 
 root_directory = f"{currency_pair}/results_{last_week:02d}"
 overall_result_for_current_training_weeks = 0
 
-for window_time in [60000, 120000, 180000, 240000, 300000]:
+for window_time in window_times_list:
     input_file_path = f"{root_directory}/{window_time}.csv"
 
     if not os.path.exists(input_file_path):

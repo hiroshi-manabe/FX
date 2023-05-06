@@ -49,13 +49,15 @@ my $last_week = shift @ARGV;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
+my @window_times = split /,\s*/, $cfg->param('settings.window_times');
+my @r_squared_values = split /,\s*/, $cfg->param('settings.r_squared_values');
 
-foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
+for my $window_time (@window_times) {
     my $root_directory = sprintf("./$currency/results_%02d", $last_week);
     my $output_filename = "${root_directory}/${window_time}.csv";
     open my $output_file, ">", $output_filename or die "Cannot open $output_filename: $!";
 
-    foreach my $r_squared_value (map { 0.92 + $_ * 0.0025 } 0 .. 20) {
+    for my $r_squared_value (@r_squared_values) {
         my %results;
 
         for my $threshold_value (1 .. 9) {
@@ -100,7 +102,7 @@ foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
             }
         }
 
-        foreach my $key (sort keys %results) {
+        for my $key (sort keys %results) {
             my ($count, $average, $std_dev) = @{$results{$key}};
             print $output_file "$key,$count,$average,$std_dev\n";
         }

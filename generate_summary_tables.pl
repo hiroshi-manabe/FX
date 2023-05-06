@@ -8,15 +8,17 @@ use Config::Simple;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
+my @window_times = split /,\s*/, $cfg->param('settings.window_times');
+my @r_squared_values = split /,\s*/, $cfg->param('settings.r_squared_values');
 
 for (my $training_weeks = 5; $training_weeks <= 30; $training_weeks += 5) {
-    foreach my $window_time (60000, 120000, 180000, 240000, 300000) {
+    for my $window_time (@window_times) {
         my $root_directory = sprintf("./$currency/results_%02d", $training_weeks);
         my $output_filename = "${root_directory}/${window_time}.md";
         open my $output_file, ">", $output_filename or die "Cannot open $output_filename: $!";
         my %results;
 
-        foreach my $r_squared_value (map { 0.92 + $_ * 0.0025 } 0 .. 20) {
+        for my $r_squared_value (@r_squared_values) {
             print $output_file "## $window_time / $r_squared_value\n\n";
             print $output_file "| Threshold \ K | 5 | 6 | 7 | 8 | 9 | 10 |\n";
             print $output_file "|--------------|---|---|---|---|---|----|\n";

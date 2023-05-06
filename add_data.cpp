@@ -6,6 +6,7 @@
 
 using std::cin;
 using std::cout;
+using std::fill_n;
 using std::getline;
 using std::size_t;
 using std::string;
@@ -15,16 +16,18 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 2 || argc > 11) {
+  if (argc < 3 || argc > 102) {
     exit(-1);
   }
   
-  int n = argc - 1;
+  int n = argc - 2;
   int width = 0;
-  int window_times[10] = {0};
+  int window_times[100] = {0};
+  int losscut;
+  stringstream(argv[1]) >> losscut;
 
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[i + 1]) >> window_times[i];
+    stringstream(argv[i + 2]) >> window_times[i];
   }
   
   string str;
@@ -51,11 +54,9 @@ int main(int argc, char *argv[]) {
     cout << orig_list[i] << ",";
     int ask = ask_list[i];
     int start_time = time_list[i];
-    int results[2][10] = {{0}, {0}};
-    int result_times[2][10] = {
-      {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-      {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}
-    };
+    int results[2][100] = {{0}, {0}};
+    int result_times[2][100];
+    fill_n(&result_times[0][0], 2 * 100, -1);
 
     for (int buy_or_sell = 0; buy_or_sell < 2; ++buy_or_sell) {
       for (size_t j = 0; j < n; ++j) {
@@ -66,14 +67,13 @@ int main(int argc, char *argv[]) {
           if (time_list[k] > start_time + window_time) {
             int index_before_window = k;
 
-            // Find the index for the data point at window_time before the current time.
             while (time_list[index_before_window] > time_list[k] - window_time) {
               --index_before_window;
             }
 
             int desired_diff = (buy_or_sell == 0) ? 1 : -1;
 
-            if ((ask_list[k] - ask_list[index_before_window]) * desired_diff < 0) {
+            if ((ask_list[k] - ask_list[index_before_window]) * desired_diff < 0 || (ask_list[k] - ask_list[i]) * desired_diff <= -losscut) {
               should_exit_trade = true;
             }
           }

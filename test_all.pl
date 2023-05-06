@@ -22,6 +22,7 @@ for my $i(40..51) {
     while (<IN>) {
         chomp;
         my @F = split/,/;
+        print qq{Bet: $F[4]\n};
         $cmd = qq{./test.py $k $j $i $i --k_value $F[2] --threshold $F[3] --window_time $F[0] --r_squared_value $F[1]};
         printex($cmd);
     }

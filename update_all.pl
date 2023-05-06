@@ -1,10 +1,21 @@
-#!/bin/sh
-php download.php
-./update.pl
-./make_week_data.pl 52
-./add_data.pl 15000 30000 45000 60000 75000
-./add_past_data.pl 60000 120000 180000 240000 300000
-./make_past_data.py 0 51 --r_squared_values 0.93 0.9325 0.935 0.9375 0.94 0.9425 0.945 0.9475 0.95 0.9525 0.955 0.9575 0.96 0.9625 0.965 0.9675 0.97 0.9725 0.975 0.9775 0.98
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use Config::Simple;
+
+my $cfg = new Config::Simple('config.ini');
+my $currency = $cfg->param('settings.currency_pair');
+my @window_times = split /,\s*/, $cfg->param('settings.window_times');
+my @window_times_quarter = map { int($_ / 4) } @window_times;
+my @r_squared_values = split /,\s*/, $cfg->param('settings.r_squared_values');
+
+#system("php download.php")
+#system("./update.pl")
+system("./make_week_data.pl 52");
+system("./add_data.pl ".join(" ", @window_times_quarter));
+system("./add_past_data.pl ".join(" ", @window_times));
+system("./make_past_data.py 0 51 --r_squared_values ".join(" ", @r_squared_values));
 #./parameter_search.pl 50 20 20
 #./test.py --stdin --num_processes 8 < commands.txt
 #./generate_csv.pl 39
