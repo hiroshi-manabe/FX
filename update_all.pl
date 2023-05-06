@@ -10,12 +10,14 @@ my @window_times = @{$cfg->param('settings.window_times')};
 my @window_times_quarter = map { int($_ / 4) } @window_times;
 my @r_squared_values = split /,\s*/, $cfg->param('settings.r_squared_values');
 
-#system("php download.php")
-#system("./update.pl")
-#system("./make_week_data.pl 52");
+system("php download.php")
+system("./update.pl")
+system("./make_week_data.pl 52");
 system("./add_data.pl 50 ".join(" ", @window_times_quarter));
 system("./add_past_data.pl ".join(" ", @window_times));
 system("./make_past_data.py 0 51 --r_squared_values ".join(" ", @r_squared_values));
+system("./parameter_search_runner.pl");
+system("./test_all.pl");
 #./parameter_search.pl 50 20 20
 #./test.py --stdin --num_processes 8 < commands.txt
 #./generate_csv.pl 39
