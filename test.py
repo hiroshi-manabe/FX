@@ -5,6 +5,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import configparser
 import ctypes
 import glob
+import logging
 import os
 import sys
 
@@ -20,6 +21,24 @@ libknn.k_nearest_neighbors.argtypes = [
     ctypes.c_int,
 ]
 libknn.k_nearest_neighbors.restype = ctypes.c_char_p
+
+
+def setup_logger(output_file):
+    logger = logging.getLogger("trading")
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(message)s")
+
+    if output_file:
+        file_handler = logging.FileHandler(output_file)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    else:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+
+    return logger
 
 
 def read_config(file_name):
@@ -56,7 +75,7 @@ def normalize_data(data, mean_first_coef, std_first_coef, mean_second_coef, std_
     return normalized_data
 
 
-def process_matching_points(train_data, dev_data, k, threshold):
+def process_matching_points(logger, train_data, dev_data, k, threshold):
     profit_sum = 0
     trade_count = 0
     if len(train_data) >= k:
@@ -72,19 +91,19 @@ def process_matching_points(train_data, dev_data, k, threshold):
             else:
                 action = "パス"
 
-            print(f"{int(timestamp)} 1次係数: {first_coef}, 2次係数: {second_coef}, アクション: {action}")
+            logger.info(f"{int(timestamp)} 1次係数: {first_coef}, 2次係数: {second_coef}, アクション: {action}")
 
             if action != "パス":
                 profit = buy_result if action == "buy" else sell_result
-                print(f"{int(timestamp)} 利益: {profit}")
+                logger.info(f"{int(timestamp)} 利益: {profit}")
                 profit_sum += profit
                 trade_count += 1
 
     if trade_count > 0:
         avr = profit_sum / trade_count
-        print(f"合計利益: {profit_sum} 取引回数: {trade_count} 平均利益: {avr}")
+        logger.info(f"合計利益: {profit_sum} 取引回数: {trade_count} 平均利益: {avr}")
     else:
-        print("取引なし")
+        logger.info("取引なし")
 
 
 def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, threshold=5):
@@ -127,7 +146,7 @@ def load_data_from_files(directory, start_week, end_week, window_time, r_squared
     return data
 
 
-def main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value=8, threshold_value=5, window_time=60000, r_squared_value=0.95):
+def main(logger, start_train_week, end_train_week, start_dev_week, end_dev_week, k_value=8, threshold_value=5, window_time=60000, r_squared_value=0.95):
     config = read_config("config.ini")
     currency_pair = find_currency_pair(config)
     currency_pair_directory = os.path.join(currency_pair, "weekly_digest")
@@ -143,17 +162,15 @@ def main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value
         train_data = normalize_data(train_data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef)
         dev_data = normalize_data(dev_data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef)
 
-    process_matching_points(train_data, dev_data, k_value, threshold_value)
+    process_matching_points(logger, train_data, dev_data, k_value, threshold_value)
 
 
 def process_params(params):
     start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value, output_file = params
-    with open(output_file, 'w') as f:
-        sys.stdout = f
-        main(start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value)
-        sys.stdout = sys.__stdout__
+    logger = setup_logger(output_file)
+    main(logger, start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value)
 
-
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process trading data")
     parser.add_argument("--stdin", action="store_true", help="Read parameters from standard input instead of a file")
@@ -181,4 +198,5 @@ if __name__ == "__main__":
         with concurrent.futures.ProcessPoolExecutor(max_workers=args.num_processes) as executor:
             executor.map(process_params, params_list)
     else:
-        main(args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value, args.window_time, args.r_squared_value)
+        logger = setup_logger(None)
+        main(logger, args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value, args.window_time, args.r_squared_value)

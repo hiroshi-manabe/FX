@@ -6,8 +6,8 @@ use Config::Simple;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
-my @window_times = @{$cfg->param('settings.window_times')}
-my @r_squared_values = @{$cfg->param('settings.r_squared_values')}
+my @window_times = @{$cfg->param('settings.window_times')};
+my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
 # Check if the command-line arguments are provided
 if (@ARGV != 3) {
