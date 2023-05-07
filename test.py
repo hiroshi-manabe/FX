@@ -20,10 +20,10 @@ libknn.k_nearest_neighbors.argtypes = [
     ctypes.c_int,
     ctypes.c_int,
 ]
-libknn.k_nearest_neighbors.restype = ctypes.c_char_p
+libknn.k_nearest_neighbors.restype = ctypes.c_int
 
 
-def setup_logger(output_file):
+def setup_logger(output_file=None):
     logger = logging.getLogger("trading")
     logger.setLevel(logging.INFO)
 
@@ -34,7 +34,7 @@ def setup_logger(output_file):
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     else:
-        stream_handler = logging.StreamHandler()
+        stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
 
@@ -75,35 +75,30 @@ def normalize_data(data, mean_first_coef, std_first_coef, mean_second_coef, std_
     return normalized_data
 
 
-def process_matching_points(logger, train_data, dev_data, k, threshold):
+def process_matching_points(logger, train_data, dev_data, min_k, max_k):
     profit_sum = 0
     trade_count = 0
-    if len(train_data) >= k:
-        for row in dev_data:
-            timestamp, first_coef, second_coef, buy_result, sell_result = row
-            knn_buy = k_nearest_neighbors("buy", first_coef, second_coef, train_data, k=k, threshold=threshold)
-            knn_sell = k_nearest_neighbors("sell", first_coef, second_coef, train_data, k=k, threshold=threshold)
+    threshold = 20
+    for row in dev_data:
+        timestamp, first_coef, second_coef, buy_result, sell_result = row
+        actions = ("buy", "sell")
+        result_strs = []
+        for action in actions:
+            knn_results = []
+            for k in range(min_k, max_k + 1):
+                knn_buy = 0
+                knn_sell = 0
+                if len(train_data) >= k:
+                    knn_buy = k_nearest_neighbors("buy", first_coef, second_coef, train_data, k=k, threshold=threshold)
+                    knn_sell = k_nearest_neighbors("sell", first_coef, second_coef, train_data, k=k, threshold=threshold)
 
-            if knn_buy == "buy":
-                action = "買い"
-            elif knn_sell == "sell":
-                action = "売り"
-            else:
-                action = "パス"
+                knn_results.append([k, knn_buy, knn_sell])
 
-            logger.info(f"{int(timestamp)} 1次係数: {first_coef}, 2次係数: {second_coef}, アクション: {action}")
+            result_strs.append(":".join(f"{k}/{knn_buy}/{knn_sell}" for k, knn_buy, knn_sell in knn_results))
 
-            if action != "パス":
-                profit = buy_result if action == "buy" else sell_result
-                logger.info(f"{int(timestamp)} 利益: {profit}")
-                profit_sum += profit
-                trade_count += 1
+        final_str = ",".join(result_strs)
 
-    if trade_count > 0:
-        avr = profit_sum / trade_count
-        logger.info(f"合計利益: {profit_sum} 取引回数: {trade_count} 平均利益: {avr}")
-    else:
-        logger.info("取引なし")
+        logger.info(f"{int(timestamp)},{first_coef},{second_coef},{final_str},{int(buy_result)},{int(sell_result)}")
 
 
 def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, threshold=5):
@@ -124,7 +119,7 @@ def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, thresh
         k,
         threshold,
     )
-    return result.decode("utf-8")
+    return result
 
     
 def load_data_from_files(directory, start_week, end_week, window_time, r_squared_value):
@@ -178,8 +173,8 @@ if __name__ == "__main__":
     parser.add_argument("end_train_week", type=int, nargs="?", help="End train week")
     parser.add_argument("start_dev_week", type=int, nargs="?", help="Start dev week")
     parser.add_argument("end_dev_week", type=int, nargs="?", help="End dev week")
-    parser.add_argument("--k_value", type=int, default=8, nargs="?", help="k value for k-NN algorithm")
-    parser.add_argument("--threshold_value", type=int, default=5, nargs="?", help="Threshold value for buy/sell decision")
+    parser.add_argument("--min_k_value", type=int, default=5, nargs="?", help="Minimum k value for k-NN algorithm")
+    parser.add_argument("--max_k_value", type=int, default=10, nargs="?", help="Maximum k value for k-NN algorithm")
     parser.add_argument("--window_time", type=int, default=60000, nargs="?", help="Window time value for filtering data")
     parser.add_argument("--r_squared_value", type=float, default=0.95, nargs="?", help="R-squared value for filtering data")
     parser.add_argument("--num_processes", type=int, default=os.cpu_count(), nargs="?", help="Number of parallel processes to use")
@@ -190,13 +185,13 @@ if __name__ == "__main__":
         for line in sys.stdin:
             values = line.strip().split(",")
             start_train_week, end_train_week, start_dev_week, end_dev_week = map(int, values[:4])
-            k_value, threshold_value, window_time = map(int, values[4:7])
+            min_k_value, max_k_value, window_time = map(int, values[4:7])
             r_squared_value = float(values[7])
             output_file = values[8]
-            params_list.append((start_train_week, end_train_week, start_dev_week, end_dev_week, k_value, threshold_value, window_time, r_squared_value, output_file))
+            params_list.append((start_train_week, end_train_week, start_dev_week, end_dev_week, min_k_value, max_k_value, window_time, r_squared_value, output_file))
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=args.num_processes) as executor:
             executor.map(process_params, params_list)
     else:
-        logger = setup_logger(None)
-        main(logger, args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.k_value, args.threshold_value, args.window_time, args.r_squared_value)
+        logger = setup_logger()
+        main(logger, args.start_train_week, args.end_train_week, args.start_dev_week, args.end_dev_week, args.min_k_value, args.max_k_value, args.window_time, args.r_squared_value)

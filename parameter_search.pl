@@ -44,14 +44,10 @@ for my $window_time (@window_times) {
             
             my $output_dir = sprintf("%s/%05d/%.4f/%02d", $root_directory, $window_time, $r_squared_value, $development_start_week);
             system("mkdir -p $output_dir");
+            my $output_file = "$output_dir/result_all.txt";
+            my $cmd = qq{./test.py $training_start_week $training_end_week $development_start_week $development_end_week --min_k_value 5 --max_k_value 10 --window_time $window_time --r_squared_value $r_squared_value > $output_file};
 
-            for my $k_value (5 .. 10) {
-                for my $threshold_value (1 .. $k_value - 1) {
-                    my $output_file = sprintf("%s/result_%02d_%02d.txt", $output_dir, $k_value, $threshold_value);
-                    my $cmd = join(",", $training_start_week, $training_end_week, $development_start_week, $development_end_week, $k_value, $threshold_value, $window_time, $r_squared_value, $output_file);
-                    print $fh "$cmd\n";
-                }
-            }
+            print $fh "$cmd\n";
         }
     }
 }
