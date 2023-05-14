@@ -3,7 +3,8 @@
 use strict;
 use warnings;
 
-for (my $i = 39; $i <= 50; ++$i) {
+#for (my $i = 39; $i <= 50; ++$i) {
+for (my $i = 44; $i <= 50; ++$i) {
     my $cmd;
     $cmd = qq{./parameter_search.pl $i 20 20};
     print "Running: $cmd\n";
