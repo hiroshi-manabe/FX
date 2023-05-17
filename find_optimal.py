@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
+import argparse
 import configparser
 import csv
 import numpy as np
 import os
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("last_week", type=int, help="The 'last_week' command-line argument.")
+    return parser.parse_args()
 
 def read_config(file_name):
     config = configparser.ConfigParser()
@@ -79,7 +85,8 @@ currency_pair = find_currency_pair(config)
 window_times = config.get("settings", "window_times")
 window_times_list = [int(x) for x in window_times.split(",")]
 
-last_week = 39
+args = parse_arguments()
+last_week = args.last_week
 
 root_directory = f"{currency_pair}/results_{last_week:02d}"
 overall_result_for_current_training_weeks = 0

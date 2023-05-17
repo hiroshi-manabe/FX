@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from array import array
 import concurrent.futures
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import configparser
@@ -19,8 +20,10 @@ libknn.k_nearest_neighbors.argtypes = [
     ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
+    ctypes.POINTER(ctypes.c_int),
+    ctypes.c_int
 ]
-libknn.k_nearest_neighbors.restype = ctypes.c_int
+libknn.k_nearest_neighbors.restype = None
 
 
 def setup_logger(output_file=None):
@@ -81,27 +84,24 @@ def process_matching_points(logger, train_data, dev_data, min_k, max_k):
     threshold = 20
     for row in dev_data:
         timestamp, first_coef, second_coef, buy_result, sell_result = row
-        actions = ("buy", "sell")
-        result_strs = []
-        for action in actions:
-            knn_results = []
-            for k in range(min_k, max_k + 1):
-                knn_buy = 0
-                knn_sell = 0
-                if len(train_data) >= k:
-                    knn_buy = k_nearest_neighbors("buy", first_coef, second_coef, train_data, k=k, threshold=threshold)
-                    knn_sell = k_nearest_neighbors("sell", first_coef, second_coef, train_data, k=k, threshold=threshold)
+        knn_results = []
+        knn_buy = 0
+        knn_sell = 0
+        # Create a preallocated array of the appropriate size
+        output_array_size = max_k - min_k + 1
+        output_array_buy = array("i", [0] * output_array_size)
+        output_array_sell = array("i", [0] * output_array_size)
+        if len(train_data) >= max_k:
+            k_nearest_neighbors("buy", first_coef, second_coef, train_data, output_array_buy, min_k=min_k, max_k=max_k, threshold=threshold)
+            k_nearest_neighbors("sell", first_coef, second_coef, train_data, output_array_sell, min_k=min_k, max_k=max_k, threshold=threshold)
 
-                knn_results.append([k, knn_buy, knn_sell])
-
-            result_strs.append(":".join(f"{k}/{knn_buy}/{knn_sell}" for k, knn_buy, knn_sell in knn_results))
-
-        final_str = ",".join(result_strs)
+        k_values = range(min_k, max_k + 1)
+        final_str = ":".join(f"{k}/{buy}/{sell}" for k, buy, sell in zip(k_values, output_array_buy, output_array_sell))
 
         logger.info(f"{int(timestamp)},{first_coef},{second_coef},{final_str},{int(buy_result)},{int(sell_result)}")
 
 
-def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, threshold=5):
+def k_nearest_neighbors(action, first_coef, second_coef, train_data, output_array, min_k=5, max_k=10, threshold=5):
     action = action.encode("utf-8")
     flattened_data = [value for sublist in train_data for value in sublist[1:]]
     num_data_points = len(train_data)
@@ -116,8 +116,11 @@ def k_nearest_neighbors(action, first_coef, second_coef, train_data, k=8, thresh
         second_coef,
         c_double_array,
         num_data_points,
-        k,
+        min_k,
+        max_k,
         threshold,
+        output_array,
+        len(output_array),
     )
     return result
 

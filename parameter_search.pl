@@ -42,9 +42,9 @@ for my $window_time (@window_times) {
             my $development_start_week = $training_end_week + 1;
             my $development_end_week = $training_end_week + $development_weeks;
             
-            my $output_dir = sprintf("%s/%05d/%.4f/%02d", $root_directory, $window_time, $r_squared_value, $development_start_week);
+            my $output_dir = sprintf("%s/%05d/%.4f", $root_directory, $window_time, $r_squared_value);
             system("mkdir -p $output_dir");
-            my $output_file = "$output_dir/result_all.txt";
+            my $output_file = sprintf("$output_dir/%02.txt", $development_start_week);
             my $cmd = qq{./test.py $training_start_week $training_end_week $development_start_week $development_end_week --min_k_value 5 --max_k_value 10 --window_time $window_time --r_squared_value $r_squared_value > $output_file};
 
             print $fh "$cmd\n";

@@ -60,50 +60,57 @@ for my $window_time (@window_times) {
     for my $r_squared_value (@r_squared_values) {
         my %results;
 
-        for my $threshold_value (1 .. 9) {
-            for my $k_value (5 .. 10) {
-                if ($threshold_value < $k_value) {
-                    my @profits;
-                    my $week = $last_week - 19;
+        for my $week($last_week - 19 .. $last_week) {
+            my $file_path = sprintf("%s/%05d/%.4f/%02d.txt", $root_directory, $window_time, $r_squared_value, $week);
+            open my $file, "<", $file_path or die "Cannot open $file_path: $!";
+            while (my $line = <$file>) {
+                chomp $line;
+                my ($index, $coef1, $coef2, $knn_results, $profit_buy, $profit_sell) = split /,/, $line;
+                my %knn_results = map { my ($k, @values) = split /\//; $k => \@values } split /:/, $knn_results;
 
-                    while ($week <= $last_week) {
-                        my $file_path = sprintf("%s/%05d/%.4f/%02d/result_%02d_%02d.txt", $root_directory, $window_time, $r_squared_value, $week, $k_value, $threshold_value);
-                        open my $file, "<", $file_path or die "Cannot open $file_path: $!";
-
-                        while (my $line = <$file>) {
-                            if ($line =~ /^\d+ 利益: ([\d\.\-]+)/) {
-                                my $profit = $1 - 8;
-                                $profit = 50 if $profit > 50;
-                                push @profits, $profit;
+                for my $threshold_value (1 .. 9) {
+                    for my $k_value (5 .. 10) {
+                        if ($threshold_value < $k_value) {
+                            my $action = "pass";  # default action
+                            if (abs($knn_results{$k_value}->[0]) >= $threshold_value) {
+                                $action = "buy";
+                            } elsif (abs($knn_results{$k_value}->[1]) >= $threshold_value) {
+                                $action = "sell";
                             }
+                            next if $action eq "pass";
+                            
+                            my $profit;
+                            if ($action eq "sell") {
+                                $profit = $profit_sell;
+                            } elsif ($action eq "buy") {
+                                $profit = $profit_buy;
+                            }
+                            $profit -= 8; # commission
+                            $profit = 50 if $profit > 50; # outliers
+                            my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
+                            push @{$results{$key}}, $profit;
                         }
-
-                        close $file;
-                        $week++;
                     }
-
-                    my $count = scalar @profits;
-                    my ($average, $std_dev) = (0, 0);
-
-                    if ($count > 1) {
-                        my $n = $count;
-                        my $correction_factor = 1;
-                        if ($n < 30) {
-                            $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
-                        }
-                        $average = sum(@profits) / $count;
-                        my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
-                        $std_dev = sqrt($variance) / $correction_factor;
-                    }
-
-                    my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
-                    $results{$key} = [$count, $average, $std_dev];
                 }
             }
         }
 
         for my $key (sort keys %results) {
-            my ($count, $average, $std_dev) = @{$results{$key}};
+            my @profits = @{$results{$key}};
+            my $count = scalar @profits;
+            my ($average, $std_dev) = (0, 0);
+
+            if ($count > 1) {
+                my $n = $count;
+                my $correction_factor = 1;
+                if ($n < 30) {
+                    $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
+                }
+                $average = sum(@profits) / $count;
+                my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
+                $std_dev = sqrt($variance) / $correction_factor;
+            }
+
             print $output_file "$key,$count,$average,$std_dev\n";
         }
     }

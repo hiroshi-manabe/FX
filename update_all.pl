@@ -17,7 +17,7 @@ my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 #system("./add_past_data.pl ".join(" ", @window_times));
 #system("./make_past_data.py 0 51 --r_squared_values ".join(" ", @r_squared_values));
 system("./parameter_search_runner.pl");
-system("./test_all.pl");
+system("./test_all.pl > result_all.all.txt");
 #./parameter_search.pl 50 20 20
 #./test.py --stdin --num_processes 8 < commands.txt
 #./generate_csv.pl 39
