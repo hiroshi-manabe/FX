@@ -63,17 +63,19 @@ int main(int argc, char *argv[]) {
         for (size_t k = i; k < orig_list.size(); ++k) {
           bool should_exit_trade = false;
           int window_time = window_times[j];
-
-          if (time_list[k] > start_time + window_time) {
+          int desired_diff = (buy_or_sell == 0) ? 1 : -1;
+          
+          if ((ask_list[k] - ask_list[i]) * desired_diff <= -losscut) {
+            should_exit_trade = true;
+          }
+          else if (time_list[k] > start_time + window_time) {
             int index_before_window = k;
 
             while (time_list[index_before_window] > time_list[k] - window_time) {
               --index_before_window;
             }
 
-            int desired_diff = (buy_or_sell == 0) ? 1 : -1;
-
-            if ((ask_list[k] - ask_list[index_before_window]) * desired_diff < 0 || (ask_list[k] - ask_list[i]) * desired_diff <= -losscut) {
+            if ((ask_list[k] - ask_list[index_before_window]) * desired_diff < 0) {
               should_exit_trade = true;
             }
           }

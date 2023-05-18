@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-from array import array
 import concurrent.futures
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import configparser
@@ -17,6 +16,7 @@ libknn.k_nearest_neighbors.argtypes = [
     ctypes.c_double,
     ctypes.c_double,
     ctypes.POINTER(ctypes.c_double),
+    ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
@@ -89,8 +89,8 @@ def process_matching_points(logger, train_data, dev_data, min_k, max_k):
         knn_sell = 0
         # Create a preallocated array of the appropriate size
         output_array_size = max_k - min_k + 1
-        output_array_buy = array("i", [0] * output_array_size)
-        output_array_sell = array("i", [0] * output_array_size)
+        output_array_buy = (ctypes.c_int * output_array_size)()
+        output_array_sell = (ctypes.c_int * output_array_size)()
         if len(train_data) >= max_k:
             k_nearest_neighbors("buy", first_coef, second_coef, train_data, output_array_buy, min_k=min_k, max_k=max_k, threshold=threshold)
             k_nearest_neighbors("sell", first_coef, second_coef, train_data, output_array_sell, min_k=min_k, max_k=max_k, threshold=threshold)
@@ -155,7 +155,9 @@ def main(logger, start_train_week, end_train_week, start_dev_week, end_dev_week,
 
         # Compute mean and standard deviation for the first and second coefficients in the training data
         mean_first_coef, std_first_coef, mean_second_coef, std_second_coef = compute_mean_std(train_data)
-
+        if std_first_coef == 0 or std_second_coef == 0:
+            sys.exit(0)
+        
         # Normalize the first and second coefficients in the training and development data
         train_data = normalize_data(train_data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef)
         dev_data = normalize_data(dev_data, mean_first_coef, std_first_coef, mean_second_coef, std_second_coef)

@@ -12,8 +12,8 @@ sub main() {
     my $currency = $cfg->param('settings.currency_pair');
     
     my $is_first = 1;
+    open OUT, ">", "commands.txt";
     while (<$currency/weekly/week_*.csv>) {
-        print "$_\n";
         my $file_to_write = $_;
         $file_to_write =~ s{/weekly/}{/weekly_data/};
         my $dir_to_write = $file_to_write;
@@ -25,14 +25,11 @@ sub main() {
         elsif (not -d $dir_to_write) {
             mkdir $dir_to_write;
         }
-        my $file_to_write_temp = $file_to_write;
-        $file_to_write_temp .= ".tmp";
-        my $cmd = qq{./add_data $arg_str < $_ > $file_to_write_temp};
-        print $cmd."\n";
-        system $cmd;
-        my $cmd = qq{mv $file_to_write_temp $file_to_write};
-        system $cmd;
+        my $cmd = qq{./add_data $arg_str < $_ > $file_to_write};
+        print OUT $cmd."\n";
     }
+    my $cmd = qq{parallel -v -j 8 :::: commands.txt};
+    system($cmd);
 }
 
 main();
