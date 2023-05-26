@@ -33,9 +33,11 @@ sub gamma {
     my $x = shift;
     if ($x == int($x)) {
         return factorial($x - 1);
-    } elsif ($x * 2 == int($x * 2)) {
+    }
+    elsif ($x * 2 == int($x * 2)) {
         return sqrt(pi) * double_factorial(2 * $x - 2) / 2 ** ($x - 1);
-    } else {
+    }
+    else {
         die "Input is not an integer or half-integer.";
     }
 }
@@ -74,7 +76,8 @@ for my $window_time (@window_times) {
                             my $action = "pass";  # default action
                             if (abs($knn_results{$k_value}->[0]) >= $threshold_value) {
                                 $action = "buy";
-                            } elsif (abs($knn_results{$k_value}->[1]) >= $threshold_value) {
+                            }
+                            elsif (abs($knn_results{$k_value}->[1]) >= $threshold_value) {
                                 $action = "sell";
                             }
                             next if $action eq "pass";
@@ -82,11 +85,11 @@ for my $window_time (@window_times) {
                             my $profit;
                             if ($action eq "sell") {
                                 $profit = $profit_sell;
-                            } elsif ($action eq "buy") {
+                            }
+                            elsif ($action eq "buy") {
                                 $profit = $profit_buy;
                             }
-                            $profit -= 8; # commission
-                            $profit = 50 if $profit > 50; # outliers
+                            $profit -= 5; # commission
                             my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
                             push @{$results{$key}}, $profit;
                         }

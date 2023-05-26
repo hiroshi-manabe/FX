@@ -81,14 +81,6 @@ def main(r_squared_values, start_week, end_week, debug):
                                     continue
                                 
 
-                            if debug:
-                                temp_file = f"temp/{debug_file_counter:03d}.csv"
-                                with open(temp_file, "w") as temp_csv:
-                                    temp_csv_writer = csv.writer(temp_csv)
-                                    for row in data[j:i+future_width+1]:
-                                        temp_csv_writer.writerow([row[0], row[1]])
-                                debug_file_counter += 1
-
                             fh_out_result.write(f"{data[i][0]},{past_width},{r_squared_value},{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
                             prev_time_dict[past_width][r_squared_value] = data[i][0]
 

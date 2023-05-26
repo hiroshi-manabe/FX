@@ -21,6 +21,8 @@ for my $i(40..51) {
     my $j = $i - 1;
     $cmd = qq{./generate_csv.pl $j};
     print OUT "$cmd\n";
+    $cmd = qq{./generate_summary_tables.pl $j};
+    print OUT "$cmd\n";
 }
 $cmd = qq{parallel -j 8 :::: commands.txt};
 printex($cmd);

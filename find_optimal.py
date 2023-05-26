@@ -57,10 +57,10 @@ def process_input_line(input_line):
     label = data[0]
     trials, avg_pl, std_dev = map(float, data[1:])
 
-    if trials < 10 or avg_pl < 0 or std_dev == 0:
+    if trials < 30 or avg_pl < 30 or std_dev == 0:
         return None
 
-    desired_std_dev = 0.2
+    desired_std_dev = 0.15
     scaling_factor = desired_std_dev / std_dev
 
     initial_principal = 1
