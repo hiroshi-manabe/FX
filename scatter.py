@@ -48,6 +48,7 @@ def process_line(line, week, args, train_start, train_end, dev_start, dev_end):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("trade_type", choices=["buy", "sell"], help="Select trade type: buy or sell")
+    parser.add_argument("window_time", type=int, help="Window time in milliseconds")
     parser.add_argument("train_start", type=int, help="Training data start week")
     parser.add_argument("train_end", type=int, help="Training data end week")
     parser.add_argument("dev_start", type=int, help="Development data start week")

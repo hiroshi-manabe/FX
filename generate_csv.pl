@@ -90,6 +90,7 @@ for my $window_time (@window_times) {
                                 $profit = $profit_buy;
                             }
                             $profit -= 5; # commission
+                            $profit = 50 if $profit > 50; # outlier
                             my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
                             push @{$results{$key}}, $profit;
                         }

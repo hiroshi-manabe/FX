@@ -57,7 +57,7 @@ def process_input_line(input_line):
     label = data[0]
     trials, avg_pl, std_dev = map(float, data[1:])
 
-    if trials < 30 or avg_pl < 30 or std_dev == 0:
+    if trials < 5 or avg_pl < 30 or std_dev == 0:
         return None
 
     desired_std_dev = 0.15
@@ -89,7 +89,6 @@ args = parse_arguments()
 last_week = args.last_week
 
 root_directory = f"{currency_pair}/results_{last_week:02d}"
-overall_result_for_current_training_weeks = 0
 
 for window_time in window_times_list:
     input_file_path = f"{root_directory}/{window_time}.csv"
@@ -99,16 +98,31 @@ for window_time in window_times_list:
 
     with open(input_file_path, 'r') as input_file:
         csv_reader = csv.reader(input_file)
-        results = []
+        result_dict = {}
 
         for input_line in csv_reader:
-            result = process_input_line(','.join(input_line))
-            if result is not None:
-                results.append(result)
+            label = input_line[0]
+            t = label.split('/')
+            r_squared = t[0]
+            k, threshold = map(int, t[1:3])
+            key = (r_squared, k, threshold)
+            trials, avg_pl, std_dev = map(float, input_line[1:])
+            result_dict[key] = trials * avg_pl
 
-        if results:
-            best_label_for_current_window_time, best_result_for_current_window_time, best_final_f = max(results, key=lambda x: x[1])
-            overall_result_for_current_training_weeks += best_result_for_current_window_time
-            print(f"Best result for last_week {last_week}, window_time {window_time}: Label {best_label_for_current_window_time}, Value {best_result_for_current_window_time}, Final_f {best_final_f}")
+        best_key = None
+        best_value = 0
+        for key, value in sorted(result_dict.items(), key=lambda item: item[1], reverse=True):
+            (k1, k2, k3) = key
+            minus_flag = False
+            for k2_t in range(k2, 4, -1):
+                for k3_t in range(k3, k2 - 1):
+                    temp_key = (k1, k2_t, k3_t)
+                    if temp_key in result_dict and result_dict[temp_key] < 0:
+                        minus_flag = True
+            if not minus_flag and value > best_value:
+                best_key = key
+                best_value = value
 
-print(f"Result for last_week {last_week}: {overall_result_for_current_training_weeks}")
+
+        if best_key:
+            print(f"Best result for last_week {last_week}, window_time {window_time}: Label {best_key[0]}/{best_key[1]}/{best_key[2]}, Value {best_value}, Final_f 1")
