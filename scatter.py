@@ -27,7 +27,7 @@ def process_file(file_name, week, args):
     data = pd.read_csv(file_name)
     prev_time = 0
     for _, row in data.iterrows():
-        if row[1] != args.window_time or row[2] < args.r_squared_value or row[0] == prev_time:
+        if row[1] != args.window_time or row[2] != args.r_squared_value or row[0] == prev_time:
             continue
 
         a = row[3]

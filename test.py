@@ -139,7 +139,7 @@ def load_data_from_files(directory, start_week, end_week, window_time, r_squared
         with open(files[0], 'r') as f:
             lines = f.readlines()
             week_data = [list(map(float, line.strip().split(','))) for line in lines]
-            filtered_week_data = [row[:1] + row[3:] for row in week_data if row[1] == window_time and row[2] >= r_squared_value]
+            filtered_week_data = [row[:1] + row[3:] for row in week_data if row[1] == window_time and row[2] == r_squared_value]
             data.extend(filtered_week_data)
     return data
 
