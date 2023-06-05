@@ -3,6 +3,7 @@ import argparse
 import configparser
 import matplotlib.pyplot as plt
 import glob
+import numpy as np
 import os
 import pandas as pd
 
@@ -24,8 +25,9 @@ def find_currency_pair(config):
 
 def process_file(file_name, week, args):
     data = pd.read_csv(file_name)
+    prev_time = 0
     for _, row in data.iterrows():
-        if row[1] != args.window_time or row[2] < args.r_squared_value:
+        if row[1] != args.window_time or row[2] < args.r_squared_value or row[0] == prev_time:
             continue
 
         a = row[3]
@@ -36,6 +38,7 @@ def process_file(file_name, week, args):
         data_a.append(a)
         data_b.append(b)
         data_c.append((profit, data_type))
+        prev_time = row[0]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -62,6 +65,19 @@ if __name__ == "__main__":
         if len(files) != 1:
             raise ValueError(f'Expected exactly one file for week {week}, but found {len(files)}')
         process_file(files[0], week, args)
+
+    data_a = np.array(data_a)
+    data_b = np.array(data_b)
+
+    train_indices = [i for i, c_data in enumerate(data_c) if c_data[1] == 'train']
+    print(f"{len(train_indices)=}")
+
+    mean_a, std_a = np.mean(data_a[train_indices]), np.std(data_a[train_indices])
+    mean_b, std_b = np.mean(data_b[train_indices]), np.std(data_b[train_indices])
+
+    data_a = (data_a - mean_a) / std_a
+    data_b = (data_b - mean_b) / std_b
+    print(f"{mean_a=}, {std_a=}, {mean_b=}, {std_b=}")
 
     for a, b, c_data in zip(data_a, data_b, data_c):
         c, data_type = c_data

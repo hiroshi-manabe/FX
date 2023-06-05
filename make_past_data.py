@@ -46,7 +46,7 @@ def main(r_squared_values, start_week, end_week, debug):
                     line[0] = int(line[0])
                     data.append(line)
 
-            prev_time_dict = defaultdict(lambda: defaultdict(int))
+            prev_time_dict = defaultdict(int)
 
             for i in range(len(data)):
                 future_data = data[i][5].split("/")
@@ -62,27 +62,17 @@ def main(r_squared_values, start_week, end_week, debug):
 
                     density_checked = False
                     density_ok = False
-                    for r_squared_value in r_squared_values:
-                        if abs(coeffs[0]) < 3 and fit > r_squared_value and data[i][0] > prev_time_dict[past_width][r_squared_value] + past_width + future_width:
-                            if not density_checked:
-                                density_checked = True
-                                j = i
-                                while data[j][0] >= data[i][0] - past_width and j > 0:
-                                    j -= 1
-                                j += 1
-
-                                if i == j or past_width / (i - j) > 250:
-                                    density_ok = False
-                                    continue
-                                else:
-                                    density_ok = True
-                            else:
-                                if not density_ok:
-                                    continue
-                                
-
-                            fh_out_result.write(f"{data[i][0]},{past_width},{r_squared_value},{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
-                            prev_time_dict[past_width][r_squared_value] = data[i][0]
+                    if abs(coeffs[0]) < 3 and data[i][0] > prev_time_dict[past_width] + past_width + future_width:
+                        j = i
+                        while data[j][0] >= data[i][0] - past_width and j > 0:
+                            j -= 1
+                        j += 1
+                        if not (i == j or past_width / (i - j) > 250):
+                            for r_squared_value in reversed(r_squared_values):
+                                if fit > r_squared_value:
+                                    fh_out_result.write(f"{data[i][0]},{past_width},{r_squared_value},{coeffs[1]},{coeffs[2]},{int(buy_profit)},{int(sell_profit)}\n")
+                                    prev_time_dict[past_width][r_squared_value] = data[i][0]
+                                    break
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

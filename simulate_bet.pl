@@ -25,7 +25,7 @@ for my $week(39..50) {
         my $bet = $dict_bet{$window_time};
         while (<IN>) {
             chomp;
-            if (m{^(\d+) 利益: (\S+)}) {
+            if (m{\b利益: (\S+)}) {
                 $time = $1;
                 $pl = $2;
                 $dict{$week}->{$time} = [$window_time, $bet, $pl];
