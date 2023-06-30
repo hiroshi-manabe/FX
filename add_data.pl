@@ -6,10 +6,11 @@ use open IO => ":utf8", ":std";
 use Config::Simple;
 
 sub main() {
-    die "command <loss-cut> <time> [time] ..." if @ARGV < 2 or @ARGV > 102;
-    my $arg_str = join(" ", @ARGV);
+    die "command <loss-cut>" if @ARGV != 1;
     my $cfg = new Config::Simple('config.ini');
     my $currency = $cfg->param('settings.currency_pair');
+    my @window_times = @{$cfg->param('settings.window_times')};
+    my $arg_str = join(" ", @ARGV, map { $_ / 4; } @window_times);
     
     my $is_first = 1;
     open OUT, ">", "commands.txt";

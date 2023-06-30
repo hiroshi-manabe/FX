@@ -6,22 +6,19 @@ import configparser
 import ctypes
 import glob
 import logging
+import math
 import os
 import sys
 
 libknn = ctypes.CDLL("./libknn.dylib")
 
 libknn.k_nearest_neighbors.argtypes = [
-    ctypes.c_char_p,
     ctypes.c_double,
     ctypes.c_double,
     ctypes.POINTER(ctypes.c_double),
     ctypes.c_int,
     ctypes.c_int,
-    ctypes.c_int,
-    ctypes.c_int,
     ctypes.POINTER(ctypes.c_int),
-    ctypes.c_int
 ]
 libknn.k_nearest_neighbors.restype = None
 
@@ -79,50 +76,66 @@ def normalize_data(data, mean_first_coef, std_first_coef, mean_second_coef, std_
 
 
 def process_matching_points(logger, train_data, dev_data, min_k, max_k):
+    if len(train_data) < max_k:
+        return
+    
     profit_sum = 0
     trade_count = 0
     threshold = 20
+    
     for row in dev_data:
         timestamp, first_coef, second_coef, buy_result, sell_result = row
         knn_results = []
-        knn_buy = 0
-        knn_sell = 0
         # Create a preallocated array of the appropriate size
-        output_array_size = max_k - min_k + 1
-        output_array_buy = (ctypes.c_int * output_array_size)()
-        output_array_sell = (ctypes.c_int * output_array_size)()
-        if len(train_data) >= max_k:
-            k_nearest_neighbors("buy", first_coef, second_coef, train_data, output_array_buy, min_k=min_k, max_k=max_k, threshold=threshold)
-            k_nearest_neighbors("sell", first_coef, second_coef, train_data, output_array_sell, min_k=min_k, max_k=max_k, threshold=threshold)
+        output_array = (ctypes.c_int * max_k)()
+        k_nearest_neighbors(first_coef, second_coef, train_data, output_array, k=max_k)
+
+        avr_x = sum(train_data[output_array[i]][1] for i in range(max_k)) / max_k
+        avr_y = sum(train_data[output_array[i]][2] for i in range(max_k)) / max_k
+        distance_to_center = math.sqrt((first_coef - avr_x) ** 2 + (second_coef - avr_y) ** 2)
+        radius = math.sqrt((first_coef - train_data[output_array[max_k - 1]][1]) ** 2 + (second_coef - train_data[output_array[max_k - 1]][2]) ** 2)
+        if distance_to_center > radius / 2:
+            continue
 
         k_values = range(min_k, max_k + 1)
-        final_str = ":".join(f"{k}/{buy}/{sell}" for k, buy, sell in zip(k_values, output_array_buy, output_array_sell))
+        results = [[], []]
+
+        threshold = 20
+
+        for col_offset in range(2):
+            plus_minus = 0
+            for i in range(max_k):
+                col_index = 3 + col_offset
+                pl = train_data[output_array[i]][col_index]
+                if pl >= threshold:
+                    plus_minus += 1
+                elif pl <= -threshold:
+                    plus_minus -= 1
+                if i >= min_k - 1:
+                    results[col_offset].append(plus_minus)
+
+        final_str = ":".join(f"{k}/{buy}/{sell}" for k, buy, sell in zip(k_values, results[0], results[1]))
 
         logger.info(f"{int(timestamp)},{first_coef},{second_coef},{final_str},{int(buy_result)},{int(sell_result)}")
 
 
-def k_nearest_neighbors(action, first_coef, second_coef, train_data, output_array, min_k=5, max_k=10, threshold=5):
-    action = action.encode("utf-8")
-    flattened_data = [value for sublist in train_data for value in sublist[1:]]
+def k_nearest_neighbors(first_coef, second_coef, train_data, output_array, k=10):
+    flattened_data = [value for sublist in train_data for value in sublist[1:3]]
     num_data_points = len(train_data)
 
     c_double_array = (ctypes.c_double * len(flattened_data))()
     for i, value in enumerate(flattened_data):
         c_double_array[i] = value
 
-    result = libknn.k_nearest_neighbors(
-        action,
+    libknn.k_nearest_neighbors(
         first_coef,
         second_coef,
         c_double_array,
         num_data_points,
-        min_k,
-        max_k,
-        threshold,
+        k,
         output_array,
-        len(output_array),
     )
-    return result
+    return
 
     
 def load_data_from_files(directory, start_week, end_week, window_time, r_squared_value):
@@ -152,6 +165,9 @@ def main(logger, start_train_week, end_train_week, start_dev_week, end_dev_week,
     if currency_pair is not None:
         train_data = load_data_from_files(currency_pair_directory, start_train_week, end_train_week, window_time, r_squared_value)
         dev_data = load_data_from_files(currency_pair_directory, start_dev_week, end_dev_week, window_time, r_squared_value)
+
+        if len(train_data) < k_value:
+            sys.exit(0)
 
         # Compute mean and standard deviation for the first and second coefficients in the training data
         mean_first_coef, std_first_coef, mean_second_coef, std_second_coef = compute_mean_std(train_data)

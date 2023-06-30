@@ -87,7 +87,7 @@ if __name__ == "__main__":
             color = 'red'
         else:
             color = 'black'
-        size = 20 if data_type == "dev" else 1
+        size = 10 if data_type == "dev" else 2
         plt.scatter(a, b, c=color, s=size)
 
     plt.xlabel('X-axis (a)')

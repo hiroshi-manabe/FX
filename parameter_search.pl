@@ -11,45 +11,65 @@ my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
 # Check if the command-line arguments are provided
 if (@ARGV != 3) {
-    print "Usage: perl script_name.pl <last_week> <training_weeks> <loop_iterations>\n";
+    print "Usage: perl script_name.pl <start_week> <end_week> <training_weeks>\n";
     exit;
 }
 
 my $commands_file = "commands.txt";
 
-my $last_week = $ARGV[0];
-my $training_weeks = $ARGV[1];
-my $loop_iterations = $ARGV[2];
+my $start_week = $ARGV[0];
+my $end_week = $ARGV[1];
+my $training_weeks = $ARGV[2];
 
-my $root_directory = sprintf("./$currency/results_%02d", $last_week);
-
-my $development_weeks = 1;
-
-my $start_week = $last_week - $training_weeks - $loop_iterations - $development_weeks + 2;
-my $end_week = $last_week - $training_weeks - $development_weeks + 1;
+my $root_directory = "./$currency";
 
 if ($start_week < 0) {
-    print "Error: Start week cannot be negative. Please adjust the training_weeks and loop_iterations values.\n";
+    print "Error: Start week cannot be negative.\n";
     exit;
 }
 
 open(my $fh, '>', $commands_file) or die "Could not open file '$commands_file' $!";
 
-for my $window_time (@window_times) {
-    for my $r_squared_value (@r_squared_values) {
-        for (my $training_start_week = $start_week; $training_start_week <= $end_week; $training_start_week++) {
-            my $training_end_week = $training_start_week + $training_weeks - 1;
-            my $development_start_week = $training_end_week + 1;
-            my $development_end_week = $training_end_week + $development_weeks;
-            
-            my $output_dir = sprintf("%s/%05d/%.4f", $root_directory, $window_time, $r_squared_value);
-            system("mkdir -p $output_dir");
-            my $output_file = sprintf("$output_dir/%02d.txt", $development_start_week);
-            my $cmd = qq{./test.py $training_start_week $training_end_week $development_start_week $development_end_week --min_k_value 5 --max_k_value 10 --window_time $window_time --r_squared_value $r_squared_value > $output_file};
+my %lines_dict = ();
+for my $week($start_week .. $end_week) {
+    my $week_str = sprintf("%03d", $week);
+    my @files = <$currency/weekly_digest/week_${week_str}_*.csv>;
+    die "Multiple files: week $week" if @files > 1;
+    open IN, "<", $files[0] or die "$!: $files[0]";
+    while (<IN>) {
+        chomp;
+        my @F = split/,/;
+        my $key = join("/", $week, $F[1], $F[2]);
+        $lines_dict{$key}++;
+    }
+    close IN;
+}
 
+for (my $development_week = $start_week + $training_weeks; $development_week <= $end_week; $development_week++) {
+    my $training_start_week = $development_week - $training_weeks;
+    my $training_end_week = $development_week - 1;
+    for my $window_time (@window_times) {
+        for my $r_squared_value (@r_squared_values) {
+            my $output_dir = sprintf("%s/%02d/%05d", $root_directory, $development_week, $window_time);
+            system("mkdir -p $output_dir");
+            my $output_file = sprintf("$output_dir/%.4f.txt", $r_squared_value);
+            my $output_file_lines = sprintf("$output_dir/%.4f_lines.txt", $r_squared_value);
+            my $cmd;
+            $cmd = qq{./test.py $training_start_week $training_end_week $development_week $development_week --min_k_value 5 --max_k_value 10 --window_time $window_time --r_squared_value $r_squared_value > $output_file};
             print $fh "$cmd\n";
+            my $count = 0;
+            for my $week($training_start_week .. $training_end_week) {
+                my $key = join("/", $week, $window_time, $r_squared_value);
+                $count += exists $lines_dict{$key} ? $lines_dict{$key} : 0;
+            }
+            open OUT, ">", $output_file_lines or die "$!: $output_file_lines";
+            print OUT "$count\n";
+            close OUT;
         }
     }
 }
-
 close($fh);
+my $cmd = qq{parallel -v -j 8 :::: commands.txt};
+print "Running: $cmd\n";
+system($cmd);
+

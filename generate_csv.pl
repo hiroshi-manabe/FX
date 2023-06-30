@@ -51,21 +51,32 @@ my $last_week = shift @ARGV;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
+my $commission = $cfg->param('settings.commission');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
 for my $window_time (@window_times) {
-    my $root_directory = sprintf("./$currency/results_%02d", $last_week);
-    my $output_filename = "${root_directory}/${window_time}.csv";
+    my $root_directory = "./$currency";
+    my $output_directory = sprintf("${root_directory}/results_%02d", $last_week);
+    mkdir $output_directory if not -d $output_directory;
+    my $output_filename = sprintf("${root_directory}/results_%02d/${window_time}.csv", $last_week);
     open my $output_file, ">", $output_filename or die "Cannot open $output_filename: $!";
 
     for my $r_squared_value (@r_squared_values) {
         my %results;
+        my $lines_all = 0;
 
         for my $week($last_week - 19 .. $last_week) {
-            my $file_path = sprintf("%s/%05d/%.4f/%02d.txt", $root_directory, $window_time, $r_squared_value, $week);
-            open my $file, "<", $file_path or die "Cannot open $file_path: $!";
-            while (my $line = <$file>) {
+            my $file_path = sprintf("%s/%02d/%05d/%.4f.txt", $root_directory, $week, $window_time, $r_squared_value);
+            my $lines_file_path = sprintf("%s/%02d/%05d/%.4f_lines.txt", $root_directory, $week, $window_time, $r_squared_value);
+            open my $fp_lines_in, "<", $lines_file_path or die "Cannot open $lines_file_path: $!";
+            my $lines = <$fp_lines_in>;
+            chomp $lines;
+            close $fp_lines_in;
+            next if $lines < 200;
+                        
+            open my $fp_in, "<", $file_path or die "Cannot open $file_path: $!";
+            while (my $line = <$fp_in>) {
                 chomp $line;
                 my ($index, $coef1, $coef2, $knn_results, $profit_buy, $profit_sell) = split /,/, $line;
                 my %knn_results = map { my ($k, @values) = split /\//; $k => \@values } split /:/, $knn_results;
@@ -89,7 +100,7 @@ for my $window_time (@window_times) {
                             elsif ($action eq "buy") {
                                 $profit = $profit_buy;
                             }
-                            $profit -= 5; # commission
+                            $profit -= $commission;
                             $profit = 50 if $profit > 50; # outlier
                             my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
                             push @{$results{$key}}, $profit;
@@ -97,24 +108,24 @@ for my $window_time (@window_times) {
                     }
                 }
             }
+            close $fp_in;
         }
 
         for my $key (sort keys %results) {
+            my ($r_squared_value, undef, undef) = split m{/}, $key;
+            
             my @profits = @{$results{$key}};
             my $count = scalar @profits;
             my ($average, $std_dev) = (0, 0);
 
-            if ($count > 1) {
-                my $n = $count;
-                my $correction_factor = 1;
-                if ($n < 30) {
-                    $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
-                }
-                $average = sum(@profits) / $count;
-                my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
-                $std_dev = sqrt($variance) / $correction_factor;
-            }
-
+#            my $n = $count;
+#            my $correction_factor = 1;
+#            if ($n < 30) {
+#                $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
+#            }
+            $average = sum(@profits) / $count;
+#            my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
+#            $std_dev = sqrt($variance) / $correction_factor;
             print $output_file "$key,$count,$average,$std_dev\n";
         }
     }

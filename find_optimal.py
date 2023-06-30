@@ -15,13 +15,6 @@ def read_config(file_name):
     config.read(file_name)
     return config
 
-def find_currency_pair(config):
-    try:
-        return config.get("settings", "currency_pair")
-    except (configparser.NoSectionError, configparser.NoOptionError):
-        print("Currency pair not found in config file")
-        return None
-
 def simulate_log_return(mu, sigma, n_simulations=100000):
     return np.random.normal(mu, sigma, n_simulations)
 
@@ -57,7 +50,7 @@ def process_input_line(input_line):
     label = data[0]
     trials, avg_pl, std_dev = map(float, data[1:])
 
-    if trials < 5 or avg_pl < 30 or std_dev == 0:
+    if trials < 30 or avg_pl < 5 or std_dev == 0:
         return None
 
     desired_std_dev = 0.15
@@ -81,9 +74,12 @@ def process_input_line(input_line):
     return label, expected_log_value * trials, final_f
 
 config = read_config("config.ini")
-currency_pair = find_currency_pair(config)
+currency_pair = config.get("settings", "currency_pair")
 window_times = config.get("settings", "window_times")
 window_times_list = [int(x) for x in window_times.split(",")]
+test_min_freq = int(config.get("settings", "test_min_freq"))
+test_max_freq = int(config.get("settings", "test_max_freq"))
+test_min_profit = int(config.get("settings", "test_min_profit"))
 
 args = parse_arguments()
 last_week = args.last_week
@@ -107,6 +103,12 @@ for window_time in window_times_list:
             k, threshold = map(int, t[1:3])
             key = (r_squared, k, threshold)
             trials, avg_pl, std_dev = map(float, input_line[1:])
+            if not (trials >= test_min_freq and
+                    trials <= test_max_freq and
+                    avg_pl >= test_min_profit):
+                continue
+#            if not (trials >=  8 and avg_pl >= 10):
+#                continue
             result_dict[key] = trials * avg_pl
 
         best_key = None
@@ -119,7 +121,7 @@ for window_time in window_times_list:
                     temp_key = (k1, k2_t, k3_t)
                     if temp_key in result_dict and result_dict[temp_key] < 0:
                         minus_flag = True
-            if not minus_flag and value > best_value:
+            if not minus_flag and value > best_value and k2 == 10:
                 best_key = key
                 best_value = value
 

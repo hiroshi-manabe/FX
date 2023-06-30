@@ -7,6 +7,7 @@ use Config::Simple;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
+my $commission = $cfg->param('settings.commission');
 my @window_times = @{$cfg->param('settings.window_times')};
 
 my %dict = ();
@@ -25,9 +26,10 @@ for my $week(39..50) {
         my $bet = $dict_bet{$window_time};
         while (<IN>) {
             chomp;
-            if (m{\b利益: (\S+)}) {
+            if (m{^(\d+).*?\b利益: (\S+)}) {
                 $time = $1;
                 $pl = $2;
+                $pl -= $commission;
                 $dict{$week}->{$time} = [$window_time, $bet, $pl];
             }
             
@@ -59,3 +61,4 @@ for my $w(sort { $a <=> $b } keys %dict) {
         $prev_t = $t;
     }
 }
+print qq{======================================================================\n};

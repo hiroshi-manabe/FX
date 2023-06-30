@@ -19,7 +19,7 @@ uint trainingDataLengths[];
 bool isDebug = false;
 
 double maxLotPerPosition = 80;
-double maxLotPerAccount = 200;
+int lossCutWidth = 50;
 
 double minProfit = 0.000;
 int priceToNormalize = 100000;
@@ -146,7 +146,7 @@ void readTrainingData(int file_handle, const int &widths[], double &data[][10000
 }
 
 struct OrderInfo {
-  int tickets[100];
+  int ticket;
   uint time;
   uint timeWidth;
   double price;
@@ -186,9 +186,7 @@ int OnInit() {
 
   handleOrder = FileOpen("order_" + current_time_str + ".csv", FILE_WRITE | FILE_CSV);   
 
-  for (uint i = 0; i < 100; ++i) {
-    order.tickets[i] = INVALID_HANDLE;
-  }
+  order.ticket = INVALID_HANDLE;
   order.isActive = false;
 
   int handleTrainingData = FileOpen("training_data.csv", FILE_READ | FILE_CSV | FILE_COMMON);
@@ -214,8 +212,10 @@ void OnDeinit(const int reason) {
   }
 }
 
-string k_nearest_neighbors(string action, double first_coef, double second_coef,
-                           const double &train_data[][][], uint &lengths[], uint timeWidthIndex, int k, int threshold) {
+void k_nearest_neighbors(double first_coef, double second_coef,
+                          const double &train_data[][][],
+                          uint &lengths[], uint timeWidthIndex,
+                          int &output_array[], int k) {
   double neighbors[][2];
   uint length = lengths[timeWidthIndex];
   ArrayResize(neighbors, length);
@@ -224,29 +224,11 @@ string k_nearest_neighbors(string action, double first_coef, double second_coef,
     neighbors[i][0] = distance;
     neighbors[i][1] = i;
   }
-
   ArraySort(neighbors);
 
-  int greater_than_20 = 0;
-  int less_than_minus_20 = 0;
-  for (int i = 0; i < k; i++) {
-    int index = (int)neighbors[i][1];
-    double value = train_data[timeWidthIndex][index][(StringCompare(action, "buy") == 0) ? 2 : 3];
-    if (value >= 20) {
-      greater_than_20++;
-    } else if (value <= -20) {
-      less_than_minus_20++;
-    }
+  for (uint i = 0; i < k; ++i) {
+    output_array[i] = neighbors[i][1];
   }
-  Print(StringConcatenate("k-NN (", action, ") - ", timeWidths[timeWidthIndex], " ", threshold, "/", k, " first_coef: ", first_coef, " second_coef: ", second_coef));
-  string result;
-  if (greater_than_20 - less_than_minus_20 >= threshold) {
-    result = action;
-  } else {
-    result = "pass";
-  }
-  Print(StringConcatenate("Result - ", greater_than_20, ":", less_than_minus_20, " ", result));
-  return result;
 }
 
 bool fitIt(const double &X[], const double &Y[], double &coeffs[]) {
@@ -387,13 +369,10 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       FileWrite(handle_signal, "Close");
       FileClose(handle_signal);
       
-      for (uint i = 0; i < 100; ++i) {
-        if (order.tickets[i] == INVALID_HANDLE) {
-          continue;
-        }
+      if (order.ticket != INVALID_HANDLE) {
         Print("オーダークローズ");
         FileWrite(handleOrder, "Order close, time:" + IntegerToString(tickCount));
-        order.tickets[i] = INVALID_HANDLE;
+        order.ticket = INVALID_HANDLE;
       }
       double pl = ((order.isSell ? order.price - ask : ask - order.price) - 0.005) * order.lot * 100000;
       Print("仮想的損益: ", pl);
@@ -459,27 +438,60 @@ void OnTickMain(uint tickCount, double ask, double bid) {
     }
     double r_squared = 1 - (ss_res / ss_tot);
 
-    string knn_buy = "";
-    string knn_sell = "";
     string action = orderOnceForDebug ? "buy" : "pass";
     uint indexBeforeWindow = findIndexBeforeMilliseconds(c, timeWidth);
     
     if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= params[i][1] &&
-        indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 250 &&
+        indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 400 &&
         curTime > prevTime + waitTime) {
-      knn_buy = k_nearest_neighbors("buy", (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1],
-                                    (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1],
-                                    trainingData, trainingDataLengths, i,
-                                    (int)params[i][2], (int)params[i][3]);
-      knn_sell = k_nearest_neighbors("sell", (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1],
-                                    (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1],
-                                    trainingData, trainingDataLengths, i,
-                                    (int)params[i][2], (int)params[i][3]);
-    
-      if (knn_buy == "buy") {
+      int k = (int)params[i][2];
+      int output_array[];
+      ArrayResize(output_array, k);
+      int threshold = (int)params[i][3];
+      double first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
+      double second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
+      k_nearest_neighbors(first_coef, second_coef,
+                          trainingData, trainingDataLengths, i,
+                          output_array,
+                          k);
+
+      double avr_x = 0.0;
+      double avr_y = 0.0;
+      
+      for(int l = 0; l < k; l++){
+        avr_x += trainingData[i][output_array[l]][0];
+        avr_y += trainingData[i][output_array[l]][1];
+      }
+      avr_x = avr_x / k;
+      avr_y = avr_y / k;
+
+      double distance_to_center = MathSqrt(MathPow((first_coef - avr_x), 2) + MathPow((second_coef - avr_y), 2));
+      double radius = MathSqrt(MathPow((first_coef - trainingData[i][output_array[k - 1]][0]), 2) + MathPow((second_coef - trainingData[i][output_array[k - 1]][1]), 2));
+      if (distance_to_center > radius / 2){
+        continue;
+      }
+
+      int results[2] = {0};
+      int t = 20;
+
+      for(int col_offset = 0; col_offset < 2; col_offset++){
+        int plus_minus = 0;
+        for(int l = 0; l < k; l++){
+          int col_index = 2 + col_offset;
+          double pl = trainingData[i][output_array[l]][col_index];
+          if (pl >= t){
+            results[col_offset] += 1;
+          }
+          else if (pl <= -t){
+            results[col_offset] -= 1;
+          }
+        }
+      }
+
+      if (results[0] >= threshold) {
         action = "buy";
       }
-      else if (knn_buy == "sell") {
+      else if (results[1] >= threshold) {
         action = "sell";
       }
       else {
@@ -487,7 +499,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       }
       prevTime = curTime;
     }
-    if (order.tickets[0] == INVALID_HANDLE && action != "pass") {
+    if (order.ticket == INVALID_HANDLE && action != "pass") {
       orderOnceForDebug = false;
       if (FileIsExist("signal_close.csv", FILE_COMMON)) {
         FileDelete("signal_close.csv", FILE_COMMON);
@@ -515,37 +527,29 @@ void OnTickMain(uint tickCount, double ask, double bid) {
 
       double maxBet = accountBalance * 495 / ask;
       double bet = accountBalance * 1000 * (fraction / 2);
-      bet = (bet > maxBet ? maxBet : bet);
+      bet = maxBet;
       double lot = double(int(bet / 1000)) / 100;
-      lot = (lot > maxLotPerAccount ? maxLotPerAccount : lot);
-      double remainingLot = lot;
-      uint l = 0;
-      while (remainingLot) {
-        double currentLot = remainingLot > maxLotPerPosition ? maxLotPerPosition : remainingLot;
-        int ticket = INVALID_HANDLE;
-        // ticket = OrderSend(Symbol(),
-        //                        isSell ? OP_SELL : OP_BUY,
-        //                        lot,
-        //                        price,
-        //                        10,
-        //                        f.isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
-        //                        0);
+      int ticket = INVALID_HANDLE;
+      ticket = OrderSend(Symbol(),
+                         isSell ? OP_SELL : OP_BUY,
+                         lot,
+                         price,
+                         10,
+                         isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
+                         0);
 
-        if (isDebug) {
-          ticket = 1;
-        }
-        if (ticket != INVALID_HANDLE) {
-          order.tickets[l] = ticket;
-          order.isActive = true;
-          remainingLot -= currentLot;
-          l++;
-        }
-        else {
-          Print("オーダーエラー：エラーコード=", GetLastError());
-        }
+      if (isDebug) {
+        ticket = 1;
+      }
+      if (ticket != INVALID_HANDLE) {
+        order.ticket = ticket;
+        order.isActive = true;
+      }
+      else {
+        Print("オーダーエラー：エラーコード=", GetLastError());
       }
       if (accountBalance == 0) {
-          order.tickets[l] = 0;
+          order.ticket = 0;
           order.isActive = true;
       }
       if (order.isActive) {

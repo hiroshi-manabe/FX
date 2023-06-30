@@ -7,11 +7,10 @@ use Config::Simple;
 use IO::Handle;
 
 sub main() {
-    die "command <time_width> ..." if @ARGV < 1;
-    my $arg_str = join(" ", @ARGV);
-
     my $cfg = new Config::Simple('config.ini');
     my $currency = $cfg->param('settings.currency_pair');
+    my @window_times = @{$cfg->param('settings.window_times')};
+    my $arg_str = join(" ", @window_times);
     
     my $is_first = 1;
     open OUT, ">", "commands.txt";
