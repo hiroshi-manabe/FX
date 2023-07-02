@@ -17,7 +17,7 @@ sub printex {
 my $cmd;
 
 open OUT, ">", "commands.txt";
-for my $i(40..51) {
+for my $i(40..59) {
     my $j = $i - 1;
     $cmd = qq{./generate_csv.pl $j};
     print OUT "$cmd\n";
@@ -29,7 +29,7 @@ printex($cmd);
 close OUT;
 
 open OUT, ">", "commands.txt";
-for my $i(40..51) {
+for my $i(40..59) {
     my $j = $i - 1;
     my $k = $i - 20;
     my $params_path = qq{$currency/results_$j/params.csv};

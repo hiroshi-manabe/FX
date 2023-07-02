@@ -10,13 +10,13 @@ my @window_times = @{$cfg->param('settings.window_times')};
 my @window_times_quarter = map { int($_ / 4) } @window_times;
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
-#system("php download.php");
-#system("./update.pl");
-#system("./make_week_data.pl 52");
-#system("./add_data.pl 50");
-#system("./add_past_data.pl");
-#system("./make_past_data.pl");
-#system("./parameter_search.pl 0 51 20");
+system("php download.php");
+system("./update.pl");
+system("./make_week_data.pl 60");
+system("./add_data.pl 50");
+system("./add_past_data.pl");
+system("./make_past_data.pl");
+system("./parameter_search.pl 0 59 20");
 system("./test_all.pl");
 system("./simulate_bet.pl");
 #./parameter_search.pl 50 20 20

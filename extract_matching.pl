@@ -9,8 +9,9 @@ my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
+my $commission = $cfg->param('settings.commission');
 
-for my $i(39..50) {
+for my $i(39..58) {
     for my $window_time(@window_times) {
         my %dict;
         my $j = $i + 1;
@@ -41,9 +42,9 @@ for my $i(39..50) {
                         my $ref = $dict{$r_squared}->{$k};
                         for my $threshold(sort {$a <=> $b;} keys %{$ref}) {
                             if ($v >= $threshold) {
-                                my $pl = $F[4 + $is_sell];
+                                my $pl = $F[4 + $is_sell] - $commission;
                                 my ($freq, $avr_pl) = @{$ref->{$threshold}};
-                                print join("\t", $freq, $avr_pl, $pl)."\n" if $freq > 1;
+                                print join("\t", $j, $window_time, $r_squared, $F[0], $freq, $avr_pl, $pl)."\n" if $freq > 1;
                             }
                         }
                     }

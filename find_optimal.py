@@ -103,12 +103,12 @@ for window_time in window_times_list:
             k, threshold = map(int, t[1:3])
             key = (r_squared, k, threshold)
             trials, avg_pl, std_dev = map(float, input_line[1:])
-            if not (trials >= test_min_freq and
-                    trials <= test_max_freq and
-                    avg_pl >= test_min_profit):
+#            if not (trials >= test_min_freq and
+#                    trials <= test_max_freq and
+#                    avg_pl >= test_min_profit):
+#                 continue
+            if not (avg_pl >= 22):
                 continue
-#            if not (trials >=  8 and avg_pl >= 10):
-#                continue
             result_dict[key] = trials * avg_pl
 
         best_key = None
