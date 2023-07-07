@@ -9,17 +9,21 @@ my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
 
 my %params_dict = ();
+die "convert_data.pl <last_week> <training_weeks>" if scalar(@ARGV) != 2;
+my ($last_week, $training_weeks) = @ARGV;
 
-open IN, "<", "$currency/params.csv" or die "$!: $currency/params.csv";
+my $params_file = sprintf("$currency/results_%02d/params.csv", $last_week);
+
+open IN, "<", $params_file or die "$!: $params_file";
+my $index = 0;
 while (<IN>) {
     chomp;
     my @F = split/,/;
-    $params_dict{$F[0]} = $F[1];
+    $params_dict{join(",", @F[0, 1])} = $index;
+    $index++;
 }
 close IN;
 
-my $last_week = 51;
-my $training_weeks = shift @ARGV;
 
 open OUT, ">", "$currency/training_data.csv";
 for (my $week = $last_week - $training_weeks + 1; $week <= $last_week; ++$week) {
@@ -30,7 +34,8 @@ for (my $week = $last_week - $training_weeks + 1; $week <= $last_week; ++$week) 
     while (<IN>) {
         chomp;
         my @F = split/,/;
-        print OUT join(",", $F[1], @F[3..6])."\n" if abs($F[2] - $params_dict{$F[1]}) < 0.000000001;
+        my $key = join(",", @F[1, 2]);
+        print OUT join(",", $params_dict{$key}, @F[3..6])."\n" if exists $params_dict{$key};
     }
     close IN;
 }

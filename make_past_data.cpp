@@ -23,16 +23,16 @@ int main(int argc, char *argv[]) {
   if (argc < 2 || argc > 101) {
     exit(-1);
   }
-  double r_squared_values[100] = {0.0};
+  string r_squared_value_strs[100];
 
   int n = argc - 1;
   for (int i = 0; i < n; ++i) {
-    stringstream(argv[i + 1]) >> r_squared_values[i];
+    stringstream(argv[i + 1]) >> r_squared_value_strs[i];
   }
 
   vector<vector<string>> data;
   vector<int> time_data;
-  unordered_map<int, unordered_map<double, int>> prev_time_dict;
+  unordered_map<int, unordered_map<string, int>> prev_time_dict;
 
   string line;
   int i = 0;
@@ -85,8 +85,9 @@ int main(int argc, char *argv[]) {
       bool density_checked = false;
       bool density_ok = false;
       for (int m = 0; m < n; ++m) {
-        double r_squared_value = r_squared_values[m];
-        if (abs(coeffs[0]) < 3 && fit > r_squared_value && time_data[i] > prev_time_dict[past_width][r_squared_value] + past_width + future_width) {
+        string r_squared_value_str = r_squared_value_strs[m];
+        double r_squared_value = stod(r_squared_value_str);
+        if (abs(coeffs[0]) < 3 && fit > r_squared_value && time_data[i] > prev_time_dict[past_width][r_squared_value_str] + past_width + future_width) {
           if (!density_checked) {
             density_checked = true;
             int j = i;
@@ -108,8 +109,8 @@ int main(int argc, char *argv[]) {
               continue;
             }
           }
-          cout << temp[0] << "," << past_width << "," << setprecision(8) << r_squared_value << "," << setprecision(16) << coeffs[1] << "," << coeffs[2] << "," << buy_profit << "," << sell_profit << "\n";
-          prev_time_dict[past_width][r_squared_value] = time_data[i];
+          cout << temp[0] << "," << past_width << "," << setprecision(8) << r_squared_value_str << "," << setprecision(16) << coeffs[1] << "," << coeffs[2] << "," << buy_profit << "," << sell_profit << "\n";
+          prev_time_dict[past_width][r_squared_value_str] = time_data[i];
         }
       }
     }

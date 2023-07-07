@@ -54,6 +54,7 @@ my $currency = $cfg->param('settings.currency_pair');
 my $commission = $cfg->param('settings.commission');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
+my $k_value = @{$cfg->param('settings.k_value')};
 
 for my $window_time (@window_times) {
     my $root_directory = "./$currency";
@@ -82,30 +83,28 @@ for my $window_time (@window_times) {
                 my %knn_results = map { my ($k, @values) = split /\//; $k => \@values } split /:/, $knn_results;
 
                 for my $threshold_value (1 .. 9) {
-                    for my $k_value (5 .. 10) {
-                        if ($threshold_value < $k_value) {
-                            my $action = "pass";  # default action
-                            if (abs($knn_results{$k_value}->[0]) >= $threshold_value) {
-                                $action = "buy";
-                            }
-                            elsif (abs($knn_results{$k_value}->[1]) >= $threshold_value) {
-                                $action = "sell";
-                            }
-                            next if $action eq "pass";
-                            
-                            my $profit;
-                            if ($action eq "sell") {
-                                $profit = $profit_sell;
-                            }
-                            elsif ($action eq "buy") {
-                                $profit = $profit_buy;
-                            }
-                            $profit -= $commission;
-                            $profit = 50 if $profit > 50; # outlier
-                            my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
-                            push @{$results{$key}}, $profit;
+                    if ($threshold_value < $k_value) {
+                        my $action = "pass";  # default action
+                        if (abs($knn_results{$k_value}->[0]) >= $threshold_value) {
+                            $action = "buy";
                         }
-                    }
+                        elsif (abs($knn_results{$k_value}->[1]) >= $threshold_value) {
+                            $action = "sell";
+                        }
+                        next if $action eq "pass";
+                        
+                        my $profit;
+                        if ($action eq "sell") {
+                            $profit = $profit_sell;
+                        }
+                        elsif ($action eq "buy") {
+                            $profit = $profit_buy;
+                        }
+                        $profit -= $commission;
+                        $profit = 50 if $profit > 50; # outlier
+                        my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
+                        push @{$results{$key}}, $profit;
+                   }
                 }
             }
             close $fp_in;

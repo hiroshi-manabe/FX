@@ -51,7 +51,7 @@ for (my $development_week = $start_week + $training_weeks; $development_week <= 
     for my $window_time (@window_times) {
         for my $r_squared_value (@r_squared_values) {
             my $output_dir = sprintf("%s/%02d/%05d", $root_directory, $development_week, $window_time);
-            system("mkdir -p $output_dir");
+            system("mkdir -p $output_dir") if not -d $output_dir;
             my $output_file = sprintf("$output_dir/%.4f.txt", $r_squared_value);
             my $output_file_lines = sprintf("$output_dir/%.4f_lines.txt", $r_squared_value);
             my $cmd;

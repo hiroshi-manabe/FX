@@ -45,41 +45,13 @@ def binary_search(mu, sigma, tol=1e-6, max_iter=100):
 
     return (lower + upper) / 2
 
-def process_input_line(input_line):
-    data = input_line.split(',')
-    label = data[0]
-    trials, avg_pl, std_dev = map(float, data[1:])
-
-    if trials < 30 or avg_pl < 5 or std_dev == 0:
-        return None
-
-    desired_std_dev = 0.15
-    scaling_factor = desired_std_dev / std_dev
-
-    initial_principal = 1
-
-    adjusted_avg_pl = avg_pl * scaling_factor
-    adjusted_std_dev = std_dev * scaling_factor
-
-    final_expected_avg_value = initial_principal + adjusted_avg_pl
-    optimal_f = binary_search(final_expected_avg_value, adjusted_std_dev)
-    final_f = optimal_f * scaling_factor
-
-    final_mean = initial_principal + avg_pl * final_f
-    final_std_dev = std_dev * final_f
-
-    outcomes = simulate_log_return(final_mean, final_std_dev)
-    expected_log_value = calculate_log_return(1, outcomes)
-
-    return label, expected_log_value * trials, final_f
 
 config = read_config("config.ini")
 currency_pair = config.get("settings", "currency_pair")
 window_times = config.get("settings", "window_times")
 window_times_list = [int(x) for x in window_times.split(",")]
-test_min_freq = int(config.get("settings", "test_min_freq"))
-test_max_freq = int(config.get("settings", "test_max_freq"))
-test_min_profit = int(config.get("settings", "test_min_profit"))
+min_profit = int(config.get("settings", "test_min_profit"))
+k_value = int(config.get("settings", "k_value"))
 
 args = parse_arguments()
 last_week = args.last_week
@@ -94,37 +66,18 @@ for window_time in window_times_list:
 
     with open(input_file_path, 'r') as input_file:
         csv_reader = csv.reader(input_file)
-        result_dict = {}
-
+        (prev_r_squared, prev_k) = (None, None)
         for input_line in csv_reader:
             label = input_line[0]
             t = label.split('/')
             r_squared = t[0]
             k, threshold = map(int, t[1:3])
-            key = (r_squared, k, threshold)
             trials, avg_pl, std_dev = map(float, input_line[1:])
-#            if not (trials >= test_min_freq and
-#                    trials <= test_max_freq and
-#                    avg_pl >= test_min_profit):
-#                 continue
-            if not (avg_pl >= 22):
-                continue
-            result_dict[key] = trials * avg_pl
-
-        best_key = None
-        best_value = 0
-        for key, value in sorted(result_dict.items(), key=lambda item: item[1], reverse=True):
-            (k1, k2, k3) = key
-            minus_flag = False
-            for k2_t in range(k2, 4, -1):
-                for k3_t in range(k3, k2 - 1):
-                    temp_key = (k1, k2_t, k3_t)
-                    if temp_key in result_dict and result_dict[temp_key] < 0:
-                        minus_flag = True
-            if not minus_flag and value > best_value and k2 == 10:
-                best_key = key
-                best_value = value
-
-
-        if best_key:
-            print(f"Best result for last_week {last_week}, window_time {window_time}: Label {best_key[0]}/{best_key[1]}/{best_key[2]}, Value {best_value}, Final_f 1")
+            
+            if (not (r_squared == prev_r_squared and
+                     k == prev_k) and
+                k == k_value and
+                (trials > 1 and
+                  avg_pl >= test_min_profit)):
+                print(",".join(str(x) for x in (window_time, r_squared, k, threshold)))
+                (prev_r_squared, prev_k) = (r_squared, k)
