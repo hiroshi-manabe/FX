@@ -6,6 +6,8 @@ use Config::Simple;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
+my $min_k_value = $cfg->param('settings.min_k_value');
+my $max_k_value = $cfg->param('settings.max_k_value');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
@@ -55,7 +57,7 @@ for (my $development_week = $start_week + $training_weeks; $development_week <= 
             my $output_file = sprintf("$output_dir/%.4f.txt", $r_squared_value);
             my $output_file_lines = sprintf("$output_dir/%.4f_lines.txt", $r_squared_value);
             my $cmd;
-            $cmd = qq{./test.py $training_start_week $training_end_week $development_week $development_week --min_k_value 5 --max_k_value 10 --window_time $window_time --r_squared_value $r_squared_value > $output_file};
+            $cmd = qq{./test.py $training_start_week $training_end_week $development_week $development_week --min_k_value $min_k_value --max_k_value $max_k_value --window_time $window_time --r_squared_value $r_squared_value > $output_file};
             print $fh "$cmd\n";
             my $count = 0;
             for my $week($training_start_week .. $training_end_week) {

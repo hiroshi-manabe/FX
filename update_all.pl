@@ -8,17 +8,19 @@ my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @window_times_quarter = map { int($_ / 4) } @window_times;
-my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
-system("php download.php");
-system("./update.pl");
-system("./make_week_data.pl 60");
-system("./add_data.pl 50");
-system("./add_past_data.pl");
-system("./make_past_data.pl");
+#system("php download.php");
+#system("./update.pl");
+#system("./make_week_data.pl 60");
+#system("./add_data.pl 50");
+#system("./add_past_data.pl");
+#system("./make_past_data.pl");
+my @r_squared_values = qw(0.9500 0.9525 0.9550 0.9575 0.9600 0.9625 0.9650 0.9675 0.9700 0.9725 0.9750 0.9775 0.9800 0.9825 0.9850 0.9875 0.9900);
+$cfg->param("settings.r_squared_values", \@r_squared_values);
+$cfg->save();
 system("./parameter_search.pl 0 59 20");
-system("./test_all.pl");
-system("./simulate_bet.pl");
+system("./test_runner.pl");
+
 #./parameter_search.pl 50 20 20
 #./test.py --stdin --num_processes 8 < commands.txt
 #./generate_csv.pl 39

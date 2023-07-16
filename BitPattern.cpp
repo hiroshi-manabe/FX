@@ -9,7 +9,6 @@ uint curIndex = 0;
 uint prevIndex = 0;
 uint priceList[10000];
 uint timeList[10000];
-uint timeWidths[];
 double params[][5];
 double trainingData[][10000][4];
 double meanStd[][2][2];
@@ -62,7 +61,7 @@ void readParams(int file_handle, double &data[][]) {
     string line = FileReadString(file_handle);
     string values[];
     int num_values = StringSplit(line, ',', values);
-    double row[5] = {0};
+    double row[4] = {0};
     for (int i = 0; i < num_values; i++) {
       row[i] = StrToDouble(values[i]);
     }
@@ -75,8 +74,9 @@ void readParams(int file_handle, double &data[][]) {
   return;
 }
 
-void readTrainingData(int file_handle, const int &widths[], double &data[][10000][4], uint &lengths[], double &meanStdRef[][2][2]) {
-  for (int i = 0; i < ArraySize(widths); i++) {
+void readTrainingData(int file_handle, double &data[][10000][4], uint &lengths[], double &meanStdRef[][2][2]) {
+  int dataLen = ArrayRange(data, 0);
+  for (int i = 0; i < dataLen; i++) {
     lengths[i] = 0;
   }
 
@@ -89,19 +89,7 @@ void readTrainingData(int file_handle, const int &widths[], double &data[][10000
       continue;
     }
 
-    int width = StrToInteger(parts[0]);
-    double values[4];
-    values[0] = StringToDouble(parts[1]);
-    values[1] = StringToDouble(parts[2]);
-    values[2] = StringToDouble(parts[3]);
-    values[3] = StringToDouble(parts[4]);
-
-    int index = ArrayBsearch(widths, width);
-    if (index < 0) {
-      Print("Time width not found in timeWidths array.");
-      continue;
-    }
-
+    int index = StrToInteger(parts[0]);
     uint dataLength = lengths[index];
     if (dataLength >= 10000) {
       Print("Data size exceeded the limit of 10000.");
@@ -109,12 +97,12 @@ void readTrainingData(int file_handle, const int &widths[], double &data[][10000
     }
 
     for (int i = 0; i < 4; i++) {
-      data[index][dataLength][i] = values[i];
+      data[index][dataLength][i] = StrToDouble(parts[i+1]);
     }
     lengths[index]++;
   }
 
-  for (int i = 0; i < ArraySize(widths); i++) {
+  for (int i = 0; i < dataLen; i++) {
     for (int j = 0; j <= 1; j++) {
       double sum = 0;
       for (uint k = 0; k < lengths[i]; k++) {
@@ -132,7 +120,7 @@ void readTrainingData(int file_handle, const int &widths[], double &data[][10000
       meanStdRef[i][j][1] = stdDev;
     }
   }
-  for (int i = 0; i < ArraySize(widths); i++) {
+  for (int i = 0; i < dataLen; i++) {
     for (uint j = 0; j < lengths[i]; j++) {
       for (int k = 0; k <= 1; k++) {
         double original_value = data[i][j][k];
@@ -168,13 +156,9 @@ int OnInit() {
   int handleParams = FileOpen("params.csv", FILE_READ | FILE_CSV | FILE_COMMON);
   readParams(handleParams, params);
   FileClose(handleParams);
-  ArrayResize(timeWidths, ArrayRange(params, 0));
-  ArrayResize(trainingData, ArraySize(params));
-  ArrayResize(trainingDataLengths, ArraySize(params));
-  ArrayResize(meanStd, ArraySize(params));
-  for (int i = 0; i < ArraySize(timeWidths); ++i) {
-    timeWidths[i] = (uint)params[i][0];
-  }
+  ArrayResize(trainingData, ArrayRange(params, 0));
+  ArrayResize(trainingDataLengths, ArrayRange(params, 0));
+  ArrayResize(meanStd, ArrayRange(params, 0));
 
   datetime current_time = TimeCurrent();
   string current_time_str = IntegerToString(TimeYear(current_time), 4) + "-" +
@@ -190,7 +174,7 @@ int OnInit() {
   order.isActive = false;
 
   int handleTrainingData = FileOpen("training_data.csv", FILE_READ | FILE_CSV | FILE_COMMON);
-  readTrainingData(handleTrainingData, timeWidths, trainingData, trainingDataLengths, meanStd);
+  readTrainingData(handleTrainingData, trainingData, trainingDataLengths, meanStd);
   FileClose(handleTrainingData);
   if (isDebug) {
     OnTick();
@@ -210,6 +194,53 @@ void OnDeinit(const int reason) {
   if (handleTicks != INVALID_HANDLE) {
     FileClose(handleTicks);
   }
+}
+
+bool MyOrderSelect(int index, int select, int pool=MODE_TRADES) {
+    Print("MyOrderSelect called with index: ", index, ", select: ", select);
+    if(!isDebug) {
+        return OrderSelect(index, select, pool);
+    }
+    return true;
+}
+
+int MyOrderSend(
+    string symbol, 
+    int cmd, 
+    double volume, 
+    double price, 
+    int slippage, 
+    double stoploss, 
+    double takeprofit, 
+    string comment=NULL, 
+    int magic=0, 
+    datetime expiration=0, 
+    color arrow_color=clrNONE
+) {
+    Print("MyOrderSend called with symbol: ", symbol, ", cmd: ", cmd, ", volume: ", volume, ", price: ", price, ", slippage: ", slippage, ", stoploss: ", stoploss, ", takeprofit: ", takeprofit);
+
+    if(!isDebug) {
+        return OrderSend(symbol, cmd, volume, price, slippage, stoploss, takeprofit, comment, magic, expiration, arrow_color);
+    }
+    return 1;
+}
+
+bool MyOrderClose(
+    int ticket, 
+    double lots, 
+    double price, 
+    int slippage, 
+    color arrow_color=CLR_NONE
+) {
+    Print("MyOrderClose called with ticket: ", ticket, ", lots: ", lots, ", price: ", price, ", slippage: ", slippage);
+    if(!isDebug) {
+        return OrderClose(ticket, lots, price, slippage, arrow_color);
+    }
+    return true;
+}
+
+double MyOrderLots() {
+  return isDebug ? OrderLots() : 1.0;
 }
 
 void k_nearest_neighbors(double first_coef, double second_coef,
@@ -372,6 +403,11 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       if (order.ticket != INVALID_HANDLE) {
         Print("オーダークローズ");
         FileWrite(handleOrder, "Order close, time:" + IntegerToString(tickCount));
+        MyOrderSelect(order.ticket, SELECT_BY_TICKET);
+        MyOrderClose(order.ticket,
+                     MyOrderLots(),
+                     order.isSell ? ask : bid,
+                     20);
         order.ticket = INVALID_HANDLE;
       }
       double pl = ((order.isSell ? order.price - ask : ask - order.price) - 0.005) * order.lot * 100000;
@@ -388,9 +424,12 @@ void OnTickMain(uint tickCount, double ask, double bid) {
     }
   }
   string outputStr = "";
-  for (uint i = 0; i < (uint)ArraySize(timeWidths); ++i) {
-    uint timeWidth = timeWidths[i];
-    int j = findIndexBeforeMilliseconds(c, timeWidths[i]);
+  for (uint i = 0; i < (uint)ArrayRange(params, 0); ++i) {
+    uint timeWidth = (uint)params[i][0];
+    double r_squared_param = params[i][1];
+    uint k_value = (uint)params[i][2];
+    uint threshold = (uint)params[i][3];
+    int j = findIndexBeforeMilliseconds(c, timeWidth);
     if (j == -1) {
       continue;
     }
@@ -441,32 +480,32 @@ void OnTickMain(uint tickCount, double ask, double bid) {
     string action = orderOnceForDebug ? "buy" : "pass";
     uint indexBeforeWindow = findIndexBeforeMilliseconds(c, timeWidth);
     
-    if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= params[i][1] &&
+    if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= r_squared_param &&
         indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 400 &&
         curTime > prevTime + waitTime) {
-      int k = (int)params[i][2];
+
       int output_array[];
-      ArrayResize(output_array, k);
-      int threshold = (int)params[i][3];
+      ArrayResize(output_array, k_value);
+
       double first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
       double second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
       k_nearest_neighbors(first_coef, second_coef,
                           trainingData, trainingDataLengths, i,
                           output_array,
-                          k);
+                          k_value);
 
       double avr_x = 0.0;
       double avr_y = 0.0;
       
-      for(int l = 0; l < k; l++){
+      for(int l = 0; l < k_value; l++){
         avr_x += trainingData[i][output_array[l]][0];
         avr_y += trainingData[i][output_array[l]][1];
       }
-      avr_x = avr_x / k;
-      avr_y = avr_y / k;
+      avr_x = avr_x / k_value;
+      avr_y = avr_y / k_value;
 
       double distance_to_center = MathSqrt(MathPow((first_coef - avr_x), 2) + MathPow((second_coef - avr_y), 2));
-      double radius = MathSqrt(MathPow((first_coef - trainingData[i][output_array[k - 1]][0]), 2) + MathPow((second_coef - trainingData[i][output_array[k - 1]][1]), 2));
+      double radius = MathSqrt(MathPow((first_coef - trainingData[i][output_array[k_value - 1]][0]), 2) + MathPow((second_coef - trainingData[i][output_array[k_value - 1]][1]), 2));
       if (distance_to_center > radius / 2){
         continue;
       }
@@ -476,7 +515,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
 
       for(int col_offset = 0; col_offset < 2; col_offset++){
         int plus_minus = 0;
-        for(int l = 0; l < k; l++){
+        for(int l = 0; l < k_value; l++){
           int col_index = 2 + col_offset;
           double pl = trainingData[i][output_array[l]][col_index];
           if (pl >= t){
@@ -507,7 +546,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       bool isSell = (action == "sell");
        
       string orderStr = "Order time: " + IntegerToString(tickCount) + 
-        " timeWidth: " + IntegerToString(timeWidths[i]) + 
+        " time width: " + IntegerToString(timeWidth) + 
         " coeffs: " + DoubleToString(coeffs[1]) + "/" + DoubleToString(coeffs[2]) + 
         " " + action;
       double fraction = params[i][4];
@@ -525,12 +564,12 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         accountBalance = accountBalanceForDebug;
       }
 
-      double maxBet = accountBalance * 495 / ask;
+      double maxBet = accountBalance * 200 / ask;
       double bet = accountBalance * 1000 * (fraction / 2);
       bet = maxBet;
       double lot = double(int(bet / 1000)) / 100;
       int ticket = INVALID_HANDLE;
-      ticket = OrderSend(Symbol(),
+      ticket = MyOrderSend(Symbol(),
                          isSell ? OP_SELL : OP_BUY,
                          lot,
                          price,
@@ -563,7 +602,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       }
     }
     outputStr += StringConcatenate(coeffs[0], ",", coeffs[1], ",", coeffs[2], ",", r_squared);
-    if (i < (uint)ArraySize(timeWidths) - 1) {
+    if (i < (uint)ArrayRange(params, 0) - 1) {
       outputStr += "/";
     }
   }

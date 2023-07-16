@@ -10,7 +10,8 @@ my $currency = $cfg->param('settings.currency_pair');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 my $commission = $cfg->param('settings.commission');
-my $min_profit = $cfg->param('settings.test_min_profit');
+my $min_profit = $cfg->param('settings.min_profit');
+my $k_value = $cfg->param('settings.k_value');
 my $bet = $cfg->param('settings.bet');
 
 my $sum = 0;
@@ -76,5 +77,5 @@ for my $i(39..58) {
 }
 
 print "Sum: $sum\n";
-print "Final capital: $capital min_profit: $min_profit bet: $bet\n";
+print "Final capital: $capital k_value: $k_value min_profit: $min_profit bet: $bet r_squared: $r_squared_values[0]\n";
 print qq{======================================================================\n};

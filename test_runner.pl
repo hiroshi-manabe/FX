@@ -11,17 +11,28 @@ my $cfg = new Config::Simple('config.ini');
 my $cmd;
 unlink $file;
 
-for my $min_profit(12..20) {
-    $cfg->param("settings.test_min_profit", $min_profit);
-    $cfg->save();
-    $cmd = "./test_all.pl";
-    print "$cmd\n";
-    system $cmd;
-    for (my $bet = 0.1; $bet < 5.0; $bet += 0.1) {
-        $cfg->param("settings.bet", $bet);
+my @r_squared_values = qw(0.9500 0.9525 0.9550 0.9575 0.9600 0.9625 0.9650 0.9675 0.9700 0.9725 0.9750 0.9775 0.9800 0.9825 0.9850 0.9875 0.9900);
+
+#for my $k_value(10..15) {
+for my $k_value(10..10) {
+    $cfg->param("settings.k_value", $k_value);
+    for my $r_squared_start_index(0..$#r_squared_values - 1) {
+        my @r_temp = @r_squared_values[$r_squared_start_index..$#r_squared_values];
+        $cfg->param("settings.r_squared_values", \@r_temp);
         $cfg->save();
-        $cmd = qq{./extract_matching.pl >> $file};
-        print "$cmd\n";
-        system $cmd;
+        for my $min_profit(8..20) {
+            $cfg->param("settings.min_profit", $min_profit);
+            $cfg->save();
+            $cmd = "./test_all.pl";
+            print "$cmd\n";
+            system $cmd;
+            for (my $bet = 0.1; $bet < 3.5; $bet += 0.1) {
+                $cfg->param("settings.bet", $bet);
+                $cfg->save();
+                $cmd = qq{./extract_matching.pl >> $file};
+                print "$cmd\n";
+                system $cmd;
+            }
+        }
     }
 }

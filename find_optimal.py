@@ -50,7 +50,7 @@ config = read_config("config.ini")
 currency_pair = config.get("settings", "currency_pair")
 window_times = config.get("settings", "window_times")
 window_times_list = [int(x) for x in window_times.split(",")]
-min_profit = int(config.get("settings", "test_min_profit"))
+min_profit = int(config.get("settings", "min_profit"))
 k_value = int(config.get("settings", "k_value"))
 
 args = parse_arguments()
@@ -78,6 +78,6 @@ for window_time in window_times_list:
                      k == prev_k) and
                 k == k_value and
                 (trials > 1 and
-                  avg_pl >= test_min_profit)):
+                  avg_pl >= min_profit)):
                 print(",".join(str(x) for x in (window_time, r_squared, k, threshold)))
                 (prev_r_squared, prev_k) = (r_squared, k)
