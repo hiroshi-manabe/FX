@@ -147,6 +147,7 @@ OrderInfo order;
 
 int handleOrder = INVALID_HANDLE;
 int handleTicks = INVALID_HANDLE;
+string currentFileName = "";
 bool orderOnceForDebug = false;
 
 //+------------------------------------------------------------------+
@@ -246,7 +247,7 @@ double MyOrderLots() {
 void k_nearest_neighbors(double first_coef, double second_coef,
                           const double &train_data[][][],
                           uint &lengths[], uint timeWidthIndex,
-                          int &output_array[], int k) {
+                          int &output_array[], uint k) {
   double neighbors[][2];
   uint length = lengths[timeWidthIndex];
   ArrayResize(neighbors, length);
@@ -258,7 +259,7 @@ void k_nearest_neighbors(double first_coef, double second_coef,
   ArraySort(neighbors);
 
   for (uint i = 0; i < k; ++i) {
-    output_array[i] = neighbors[i][1];
+    output_array[i] = (int)neighbors[i][1];
   }
 }
 
@@ -349,7 +350,25 @@ void OnTick() {
       OnTickMain(tickCount, doubleValues[0] / 1000, doubleValues[1] / 1000);
     }
   }
-  OnTickMain(GetTickCount(), Ask, Bid);
+  else {
+    datetime current_time = TimeCurrent();
+    string tickDataFileName = StringFormat("ticks-%04d-%02d-%02d-%02d.csv",
+                                           TimeYear(current_time),
+                                           TimeMonth(current_time),
+                                           TimeDay(current_time),
+                                           TimeHour(current_time));
+    if (handleTicks == INVALID_HANDLE) {
+      handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
+      currentFileName = tickDataFileName;
+    }
+    else if (tickDataFileName != currentFileName) {
+      FileClose(handleTicks);
+      handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
+      currentFileName = tickDataFileName;
+    }
+    FileWrite(handleTicks, GetTickCount(), Ask, Bid);
+    OnTickMain(GetTickCount(), Ask, Bid);
+  }
 }
 
 void OnTickMain(uint tickCount, double ask, double bid) {
@@ -497,7 +516,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       double avr_x = 0.0;
       double avr_y = 0.0;
       
-      for(int l = 0; l < k_value; l++){
+      for(uint l = 0; l < k_value; l++){
         avr_x += trainingData[i][output_array[l]][0];
         avr_y += trainingData[i][output_array[l]][1];
       }
@@ -515,7 +534,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
 
       for(int col_offset = 0; col_offset < 2; col_offset++){
         int plus_minus = 0;
-        for(int l = 0; l < k_value; l++){
+        for(uint l = 0; l < k_value; l++){
           int col_index = 2 + col_offset;
           double pl = trainingData[i][output_array[l]][col_index];
           if (pl >= t){
@@ -527,10 +546,10 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         }
       }
 
-      if (results[0] >= threshold) {
+      if (results[0] >= (int)threshold) {
         action = "buy";
       }
-      else if (results[1] >= threshold) {
+      else if (results[1] >= (int)threshold) {
         action = "sell";
       }
       else {
