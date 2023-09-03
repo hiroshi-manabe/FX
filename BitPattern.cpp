@@ -18,9 +18,9 @@ uint trainingDataLengths[];
 bool isDebug = false;
 
 double maxLotPerPosition = 80;
-int lossCutWidth = 50;
+double lossCutWidth = 0.05;
 
-double minProfit = 0.000;
+double minProfit = 0;
 int priceToNormalize = 100000;
 double accountBalanceForDebug = 1000000;
 
@@ -241,7 +241,7 @@ bool MyOrderClose(
 }
 
 double MyOrderLots() {
-  return isDebug ? OrderLots() : 1.0;
+  return isDebug ? 1.0 : OrderLots();
 }
 
 void k_nearest_neighbors(double first_coef, double second_coef,
@@ -388,6 +388,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
     }
     handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
   }
+  FileWrite(handleTicks, getTime(c), nAsk, nBid);
 
   setPrice(curIndex, nAsk);
   uint curTime = tickCount;
@@ -399,7 +400,6 @@ void OnTickMain(uint tickCount, double ask, double bid) {
   
   bool spreadIsWide = ask > bid + 0.009;
   if (spreadIsWide) {
-    FileWrite(handleTicks, getTime(c), nAsk, nBid);
     return;
   }
   if (order.isActive) {
@@ -408,9 +408,9 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       int beforeIndex = findIndexBeforeMilliseconds(c, (int)(order.timeWidth / 4));
       uint beforePrice = getPrice(beforeIndex);
       if ((!order.isSell &&
-           ask <= beforePrice + minProfit) ||
+           nAsk <= beforePrice + minProfit) ||
           (order.isSell &&
-           ask >= beforePrice - minProfit)) {
+           nAsk >= beforePrice - minProfit)) {
         closeFlag = true;
       }
     }
@@ -429,20 +429,12 @@ void OnTickMain(uint tickCount, double ask, double bid) {
                      20);
         order.ticket = INVALID_HANDLE;
       }
-      double pl = ((order.isSell ? order.price - ask : ask - order.price) - 0.005) * order.lot * 100000;
-      Print("仮想的損益: ", pl);
-      if (isDebug) {
-        accountBalanceForDebug += pl;
-        Print("仮想的残高: ", accountBalanceForDebug);
-      }
       order.isActive = false;
     }
     if (order.isActive) {
-      FileWrite(handleTicks, tickCount, nAsk, nBid);
       return;
     }
   }
-  string outputStr = "";
   for (uint i = 0; i < (uint)ArrayRange(params, 0); ++i) {
     uint timeWidth = (uint)params[i][0];
     double r_squared_param = params[i][1];
@@ -498,6 +490,8 @@ void OnTickMain(uint tickCount, double ask, double bid) {
 
     string action = orderOnceForDebug ? "buy" : "pass";
     uint indexBeforeWindow = findIndexBeforeMilliseconds(c, timeWidth);
+    double first_coef = 0.0;
+    double second_coef = 0.0;
     
     if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= r_squared_param &&
         indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 400 &&
@@ -506,8 +500,8 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       int output_array[];
       ArrayResize(output_array, k_value);
 
-      double first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
-      double second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
+      first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
+      second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
       k_nearest_neighbors(first_coef, second_coef,
                           trainingData, trainingDataLengths, i,
                           output_array,
@@ -555,9 +549,9 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       else {
         action = "pass";
       }
-      prevTime = curTime;
     }
     if (order.ticket == INVALID_HANDLE && action != "pass") {
+      prevTime = curTime;
       orderOnceForDebug = false;
       if (FileIsExist("signal_close.csv", FILE_COMMON)) {
         FileDelete("signal_close.csv", FILE_COMMON);
@@ -566,7 +560,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
        
       string orderStr = "Order time: " + IntegerToString(tickCount) + 
         " time width: " + IntegerToString(timeWidth) + 
-        " coeffs: " + DoubleToString(coeffs[1]) + "/" + DoubleToString(coeffs[2]) + 
+        " coeffs: " + DoubleToString(first_coef) + "/" + DoubleToString(second_coef) + 
         " " + action;
       double fraction = params[i][4];
       int handle_signal = FileOpen("signal.csv", FILE_WRITE | FILE_CSV | FILE_COMMON);
@@ -596,9 +590,6 @@ void OnTickMain(uint tickCount, double ask, double bid) {
                          isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
                          0);
 
-      if (isDebug) {
-        ticket = 1;
-      }
       if (ticket != INVALID_HANDLE) {
         order.ticket = ticket;
         order.isActive = true;
@@ -620,12 +611,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         order.isSell = (action == "sell");
       }
     }
-    outputStr += StringConcatenate(coeffs[0], ",", coeffs[1], ",", coeffs[2], ",", r_squared);
-    if (i < (uint)ArrayRange(params, 0) - 1) {
-      outputStr += "/";
-    }
   }
-  FileWrite(handleTicks, tickCount, nAsk, nBid, outputStr);
 }
 //+------------------------------------------------------------------+
 //| Timer function                                                   |

@@ -8,7 +8,7 @@ use Config::Simple;
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
 my @window_times = @{$cfg->param('settings.window_times')};
-my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
+my @r_squared_values = @{$cfg->param('settings.test_r_squared_values')};
 my $commission = $cfg->param('settings.commission');
 my $min_profit = $cfg->param('settings.min_profit');
 my $k_value = $cfg->param('settings.k_value');

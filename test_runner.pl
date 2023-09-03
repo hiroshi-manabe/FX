@@ -11,14 +11,14 @@ my $cfg = new Config::Simple('config.ini');
 my $cmd;
 unlink $file;
 
-my @r_squared_values = qw(0.9500 0.9525 0.9550 0.9575 0.9600 0.9625 0.9650 0.9675 0.9700 0.9725 0.9750 0.9775 0.9800 0.9825 0.9850 0.9875 0.9900);
+my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
 
 #for my $k_value(10..15) {
 for my $k_value(10..10) {
     $cfg->param("settings.k_value", $k_value);
     for my $r_squared_start_index(0..$#r_squared_values - 1) {
         my @r_temp = @r_squared_values[$r_squared_start_index..$#r_squared_values];
-        $cfg->param("settings.r_squared_values", \@r_temp);
+        $cfg->param("settings.test_r_squared_values", \@r_temp);
         $cfg->save();
         for my $min_profit(8..20) {
             $cfg->param("settings.min_profit", $min_profit);
