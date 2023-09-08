@@ -16,6 +16,7 @@ uint prevTime;
 uint waitTime = 300000;
 uint trainingDataLengths[];
 bool isDebug = false;
+int mode = 1; // 1 for standalone, 2 for sending, and 3 for receiving mode
 
 double maxLotPerPosition = 80;
 double lossCutWidth = 0.05;
@@ -388,13 +389,13 @@ void OnTickMain(uint tickCount, double ask, double bid) {
     }
     handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
   }
-  FileWrite(handleTicks, getTime(c), nAsk, nBid);
 
   setPrice(curIndex, nAsk);
   uint curTime = tickCount;
   setTime(curIndex, curTime);
   uint c = curIndex;
   curIndex++;
+  FileWrite(handleTicks, getTime(c), nAsk, nBid);
 
   double rate = (double)nAsk / priceToNormalize;
   
@@ -404,29 +405,40 @@ void OnTickMain(uint tickCount, double ask, double bid) {
   }
   if (order.isActive) {
     bool closeFlag = false;
-    if (curTime > order.time + order.timeWidth / 4) {
-      int beforeIndex = findIndexBeforeMilliseconds(c, (int)(order.timeWidth / 4));
-      uint beforePrice = getPrice(beforeIndex);
-      if ((!order.isSell &&
-           nAsk <= beforePrice + minProfit) ||
-          (order.isSell &&
-           nAsk >= beforePrice - minProfit)) {
+    if (mode == 1 || mode == 2) {
+      if (curTime > order.time + order.timeWidth / 4) {
+        int beforeIndex = findIndexBeforeMilliseconds(c, (int)(order.timeWidth / 4));
+        uint beforePrice = getPrice(beforeIndex);
+        if ((!order.isSell &&
+             nAsk <= beforePrice + minProfit) ||
+            (order.isSell &&
+             nAsk >= beforePrice - minProfit)) {
+          closeFlag = true;
+        }
+        if (mode == 2 && closeFlag) {
+          int handle_signal = FileOpen("signal_close.csv", FILE_WRITE | FILE_CSV | FILE_COMMON);
+          FileWrite(handle_signal, "Close");
+          FileClose(handle_signal);
+        }
+      }
+    }
+    else if (mode == 3) {
+      if (FileIsExist("signal_close.csv", FILE_COMMON)) {
         closeFlag = true;
+        FileDelete("signal_close.csv", FILE_COMMON);
       }
     }
     if (closeFlag) {
-      int handle_signal = FileOpen("signal_close.csv", FILE_WRITE | FILE_CSV | FILE_COMMON);
-      FileWrite(handle_signal, "Close");
-      FileClose(handle_signal);
-      
       if (order.ticket != INVALID_HANDLE) {
         Print("オーダークローズ");
         FileWrite(handleOrder, "Order close, time:" + IntegerToString(tickCount));
-        MyOrderSelect(order.ticket, SELECT_BY_TICKET);
-        MyOrderClose(order.ticket,
-                     MyOrderLots(),
-                     order.isSell ? ask : bid,
-                     20);
+        if (mode == 1 || mode == 3) {
+          MyOrderSelect(order.ticket, SELECT_BY_TICKET);
+          MyOrderClose(order.ticket,
+                       MyOrderLots(),
+                       order.isSell ? ask : bid,
+                       20);
+        }
         order.ticket = INVALID_HANDLE;
       }
       order.isActive = false;
@@ -435,181 +447,200 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       return;
     }
   }
-  for (uint i = 0; i < (uint)ArrayRange(params, 0); ++i) {
-    uint timeWidth = (uint)params[i][0];
-    double r_squared_param = params[i][1];
-    uint k_value = (uint)params[i][2];
-    uint threshold = (uint)params[i][3];
-    int j = findIndexBeforeMilliseconds(c, timeWidth);
-    if (j == -1) {
-      continue;
-    }
-    double X[5] = {0};
-    double Y[3] = {0};
-    for (uint k = j; k <= c; ++k) {
-      double x = (double)getTime(k) - curTime;
-      double y = (double)getPrice(k) / rate - priceToNormalize;
-      X[0] += 1;
-      X[1] += x;
-      double t = x * x;
-      X[2] += t;
-      t *= x;
-      X[3] += t;
-      t *= x;
-      X[4] += t;
-      t = y;
-      Y[0] += t;
-      t *= x;
-      Y[1] += t;
-      t *= x;
-      Y[2] += t;
-    }
-    double coeffs[3];
-    if (X[0] == 0 || !fitIt(X, Y, coeffs)) {
-      continue;
-    }
-    double y_mean = Y[0] / X[0];
-    double ss_res = 0.0;
-    double ss_tot = 0.0;
-        
-    for (uint k = j; k <= c; ++k) {
-      uint time = getTime(k);
-      double price = (double)getPrice(k) / rate;
-      double x = (double)time - curTime;
-      double y = (double)price - priceToNormalize;
-      double y_pred = quadratic(x, coeffs[2], coeffs[1], coeffs[0]);
-      double t = y - y_pred;
-      ss_res += t * t;
-      t = y - y_mean;
-      ss_tot += t * t;
-    }
-    if (ss_tot == 0) {
-      continue;
-    }
-    double r_squared = 1 - (ss_res / ss_tot);
-
-    string action = orderOnceForDebug ? "buy" : "pass";
-    uint indexBeforeWindow = findIndexBeforeMilliseconds(c, timeWidth);
-    double first_coef = 0.0;
-    double second_coef = 0.0;
-    
-    if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= r_squared_param &&
-        indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 400 &&
-        curTime > prevTime + waitTime) {
-
-      int output_array[];
-      ArrayResize(output_array, k_value);
-
-      first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
-      second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
-      k_nearest_neighbors(first_coef, second_coef,
-                          trainingData, trainingDataLengths, i,
-                          output_array,
-                          k_value);
-
-      double avr_x = 0.0;
-      double avr_y = 0.0;
-      
-      for(uint l = 0; l < k_value; l++){
-        avr_x += trainingData[i][output_array[l]][0];
-        avr_y += trainingData[i][output_array[l]][1];
-      }
-      avr_x = avr_x / k_value;
-      avr_y = avr_y / k_value;
-
-      double distance_to_center = MathSqrt(MathPow((first_coef - avr_x), 2) + MathPow((second_coef - avr_y), 2));
-      double radius = MathSqrt(MathPow((first_coef - trainingData[i][output_array[k_value - 1]][0]), 2) + MathPow((second_coef - trainingData[i][output_array[k_value - 1]][1]), 2));
-      if (distance_to_center > radius / 2){
+  string finalAction = "pass";
+  string orderStr = "";
+  uint timeWidth = 0;
+  if (mode == 1 || mode == 2) {
+    for (uint i = 0; i < (uint)ArrayRange(params, 0); ++i) {
+      timeWidth = (uint)params[i][0];
+      double r_squared_param = params[i][1];
+      uint k_value = (uint)params[i][2];
+      uint threshold = (uint)params[i][3];
+      int j = findIndexBeforeMilliseconds(c, timeWidth);
+      if (j == -1) {
         continue;
       }
+      double X[5] = {0};
+      double Y[3] = {0};
+      for (uint k = j; k <= c; ++k) {
+        double x = (double)getTime(k) - curTime;
+        double y = (double)getPrice(k) / rate - priceToNormalize;
+        X[0] += 1;
+        X[1] += x;
+        double t = x * x;
+        X[2] += t;
+        t *= x;
+        X[3] += t;
+        t *= x;
+        X[4] += t;
+        t = y;
+        Y[0] += t;
+        t *= x;
+        Y[1] += t;
+        t *= x;
+        Y[2] += t;
+      }
+      double coeffs[3];
+      if (X[0] == 0 || !fitIt(X, Y, coeffs)) {
+        continue;
+      }
+      double y_mean = Y[0] / X[0];
+      double ss_res = 0.0;
+      double ss_tot = 0.0;
+        
+      for (uint k = j; k <= c; ++k) {
+        uint time = getTime(k);
+        double price = (double)getPrice(k) / rate;
+        double x = (double)time - curTime;
+        double y = (double)price - priceToNormalize;
+        double y_pred = quadratic(x, coeffs[2], coeffs[1], coeffs[0]);
+        double t = y - y_pred;
+        ss_res += t * t;
+        t = y - y_mean;
+        ss_tot += t * t;
+      }
+      if (ss_tot == 0) {
+        continue;
+      }
+      double r_squared = 1 - (ss_res / ss_tot);
 
-      int results[2] = {0};
-      int t = 20;
+      string action = orderOnceForDebug ? "buy" : "pass";
+      uint indexBeforeWindow = findIndexBeforeMilliseconds(c, timeWidth);
+      double first_coef = 0.0;
+      double second_coef = 0.0;
+    
+      if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= r_squared_param &&
+          indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 400 &&
+          curTime > prevTime + waitTime) {
 
-      for(int col_offset = 0; col_offset < 2; col_offset++){
-        int plus_minus = 0;
+        int output_array[];
+        ArrayResize(output_array, k_value);
+
+        first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
+        second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
+        k_nearest_neighbors(first_coef, second_coef,
+                            trainingData, trainingDataLengths, i,
+                            output_array,
+                            k_value);
+
+        double avr_x = 0.0;
+        double avr_y = 0.0;
+      
         for(uint l = 0; l < k_value; l++){
-          int col_index = 2 + col_offset;
-          double pl = trainingData[i][output_array[l]][col_index];
-          if (pl >= t){
-            results[col_offset] += 1;
-          }
-          else if (pl <= -t){
-            results[col_offset] -= 1;
+          avr_x += trainingData[i][output_array[l]][0];
+          avr_y += trainingData[i][output_array[l]][1];
+        }
+        avr_x = avr_x / k_value;
+        avr_y = avr_y / k_value;
+
+        double distance_to_center = MathSqrt(MathPow((first_coef - avr_x), 2) + MathPow((second_coef - avr_y), 2));
+        double radius = MathSqrt(MathPow((first_coef - trainingData[i][output_array[k_value - 1]][0]), 2) + MathPow((second_coef - trainingData[i][output_array[k_value - 1]][1]), 2));
+        if (distance_to_center > radius / 2){
+          continue;
+        }
+
+        int results[2] = {0};
+        int t = 20;
+
+        for(int col_offset = 0; col_offset < 2; col_offset++){
+          int plus_minus = 0;
+          for(uint l = 0; l < k_value; l++){
+            int col_index = 2 + col_offset;
+            double pl = trainingData[i][output_array[l]][col_index];
+            if (pl >= t){
+              results[col_offset] += 1;
+            }
+            else if (pl <= -t){
+              results[col_offset] -= 1;
+            }
           }
         }
-      }
 
-      if (results[0] >= (int)threshold) {
-        action = "buy";
+        if (results[0] >= (int)threshold) {
+          action = "buy";
+        }
+        else if (results[1] >= (int)threshold) {
+          action = "sell";
+        }
+        else {
+          action = "pass";
+        }
       }
-      else if (results[1] >= (int)threshold) {
-        action = "sell";
-      }
-      else {
-        action = "pass";
+      if (action != "pass") {
+        finalAction = action;
+        orderStr = "Order time: " + IntegerToString(tickCount) + 
+          " time width: " + IntegerToString(timeWidth) + 
+          " coeffs: " + DoubleToString(first_coef) + "/" + DoubleToString(second_coef) + 
+          " " + action;
+        break;
       }
     }
-    if (order.ticket == INVALID_HANDLE && action != "pass") {
-      prevTime = curTime;
-      orderOnceForDebug = false;
-      if (FileIsExist("signal_close.csv", FILE_COMMON)) {
-        FileDelete("signal_close.csv", FILE_COMMON);
+    if (finalAction != "pass") {
+      if (mode == 2) {
+        if (FileIsExist("signal_close.csv", FILE_COMMON)) {
+          FileDelete("signal_close.csv", FILE_COMMON);
+        }
+        int handle_signal = FileOpen("signal_" + finalAction + ".csv", FILE_WRITE | FILE_COMMON);
+        FileWrite(handle_signal, orderStr);
+        FileClose(handle_signal);
       }
-      bool isSell = (action == "sell");
-       
-      string orderStr = "Order time: " + IntegerToString(tickCount) + 
-        " time width: " + IntegerToString(timeWidth) + 
-        " coeffs: " + DoubleToString(first_coef) + "/" + DoubleToString(second_coef) + 
-        " " + action;
-      double fraction = params[i][4];
-      int handle_signal = FileOpen("signal.csv", FILE_WRITE | FILE_CSV | FILE_COMMON);
-      FileWrite(handle_signal, IntegerToString(tickCount) + "," +
-                action + "," + DoubleToString(fraction) + "," +
-                orderStr);
-      FileClose(handle_signal);
-                                    
-      double price = isSell ? bid : ask;
-      double closePrice = isSell ? ask : bid;
-
-      double accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
-      if (isDebug) {
-        accountBalance = accountBalanceForDebug;
+    }
+  }
+  else if (mode == 3) {
+    string actions[2] = {"buy", "sell"};
+    for (int i = 0; i < 2; ++i) {
+      string filename = "signal_" + actions[i] + ".csv";
+      if (FileIsExist(filename, FILE_COMMON)) {
+        finalAction = actions[i];
+        int handle_signal = FileOpen(filename, FILE_READ | FILE_COMMON);
+        orderStr = FileReadString(handle_signal);
+        FileClose(handle_signal);
       }
+    }
+  }
+  if (finalAction != "pass") {
+    orderOnceForDebug = false;
+    prevTime = curTime;
+    bool isSell = (finalAction == "sell");
+    double price = isSell ? bid : ask;
+    double closePrice = isSell ? ask : bid;
 
-      double maxBet = accountBalance * 200 / ask;
-      double bet = accountBalance * 1000 * (fraction / 2);
-      bet = maxBet;
-      double lot = double(int(bet / 1000)) / 100;
-      int ticket = INVALID_HANDLE;
+    double accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+    if (isDebug) {
+      accountBalance = accountBalanceForDebug;
+    }
+
+    double bet = accountBalance * 200 / ask;
+    double lot = double(int(bet / 1000)) / 100;
+    int ticket = INVALID_HANDLE;
+    if (mode == 1 || mode == 3) {
       ticket = MyOrderSend(Symbol(),
-                         isSell ? OP_SELL : OP_BUY,
-                         lot,
-                         price,
-                         10,
-                         isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
-                         0);
+                           isSell ? OP_SELL : OP_BUY,
+                           lot,
+                           price,
+                           10,
+                           isSell ? closePrice + lossCutWidth : closePrice - lossCutWidth,
+                           0);
+    }
+    else if (mode == 2) {
+      ticket = 0;
+    }
 
-      if (ticket != INVALID_HANDLE) {
-        order.ticket = ticket;
-        order.isActive = true;
-      }
-      else {
-        Print("オーダーエラー：エラーコード=", GetLastError());
-      }
-      if (accountBalance == 0) {
-          order.ticket = 0;
-          order.isActive = true;
-      }
-      if (order.isActive) {
-        Print(orderStr);
-        FileWrite(handleOrder, orderStr);
-        order.time = curTime;
-        order.timeWidth = timeWidth;
-        order.price = ask;
-        order.lot = lot;
-        order.isSell = (action == "sell");
-      }
+    if (ticket != INVALID_HANDLE) {
+      order.ticket = ticket;
+      order.isActive = true;
+    }
+    else {
+      Print("オーダーエラー：エラーコード=", GetLastError());
+    }
+    if (order.isActive) {
+      Print(orderStr);
+      FileWrite(handleOrder, orderStr);
+      order.time = curTime;
+      order.timeWidth = timeWidth;
+      order.price = ask;
+      order.lot = lot;
+      order.isSell = (finalAction == "sell");
     }
   }
 }
