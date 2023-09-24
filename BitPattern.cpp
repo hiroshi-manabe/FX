@@ -517,7 +517,10 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         ArrayResize(output_array, k_value);
 
         first_coef = (coeffs[1] - meanStd[i][0][0]) / meanStd[i][0][1];
-        second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1]; 
+        second_coef = (coeffs[2] - meanStd[i][1][0]) / meanStd[i][1][1];
+        Print("Executing knn - time width: ", timeWidth,
+              " coeffs: " + DoubleToString(first_coef) + "/"
+              + DoubleToString(second_coef));
         k_nearest_neighbors(first_coef, second_coef,
                             trainingData, trainingDataLengths, i,
                             output_array,
@@ -536,6 +539,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         double distance_to_center = MathSqrt(MathPow((first_coef - avr_x), 2) + MathPow((second_coef - avr_y), 2));
         double radius = MathSqrt(MathPow((first_coef - trainingData[i][output_array[k_value - 1]][0]), 2) + MathPow((second_coef - trainingData[i][output_array[k_value - 1]][1]), 2));
         if (distance_to_center > radius / 2){
+          Print("Distance to center to long.");
           continue;
         }
 
@@ -555,7 +559,6 @@ void OnTickMain(uint tickCount, double ask, double bid) {
             }
           }
         }
-
         if (results[0] >= (int)threshold) {
           action = "buy";
         }
@@ -565,6 +568,10 @@ void OnTickMain(uint tickCount, double ask, double bid) {
         else {
           action = "pass";
         }
+        Print("Threshold: ", threshold,
+              " buy result: ", results[0],
+              " sell result: ", results[1],
+              " action: ", action);
       }
       if (action != "pass") {
         finalAction = action;
@@ -610,8 +617,11 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       accountBalance = accountBalanceForDebug;
     }
 
-    double bet = accountBalance * 200 / ask;
+    double bet = accountBalance * 490 / ask;
     double lot = double(int(bet / 1000)) / 100;
+    if (lot > 80) {
+      lot = 80;
+    }
     int ticket = INVALID_HANDLE;
     if (mode == 1 || mode == 3) {
       ticket = MyOrderSend(Symbol(),
