@@ -148,6 +148,8 @@ OrderInfo order;
 
 int handleOrder = INVALID_HANDLE;
 int handleTicks = INVALID_HANDLE;
+int leverage = 490;
+string leverageFileName = "leverage.csv";
 string currentFileName = "";
 bool orderOnceForDebug = false;
 
@@ -161,6 +163,12 @@ int OnInit() {
   ArrayResize(trainingData, ArrayRange(params, 0));
   ArrayResize(trainingDataLengths, ArrayRange(params, 0));
   ArrayResize(meanStd, ArrayRange(params, 0));
+
+  if (FileIsExist(leverageFileName, FILE_COMMON)) {
+    int fileHandle = FileOpen(leverageFileName, FILE_READ | FILE_COMMON);
+    leverage = FileReadInteger(fileHandle);
+    FileClose(fileHandle);
+  }
 
   datetime current_time = TimeCurrent();
   string current_time_str = IntegerToString(TimeYear(current_time), 4) + "-" +
@@ -617,7 +625,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       accountBalance = accountBalanceForDebug;
     }
 
-    double bet = accountBalance * 490 / ask;
+    double bet = accountBalance * leverage / ask;
     double lot = double(int(bet / 1000)) / 100;
     if (lot > 80) {
       lot = 80;
