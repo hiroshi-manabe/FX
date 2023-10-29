@@ -351,8 +351,8 @@ double quadratic(double x, double a, double b, double c) {
 void OnTick() {
   if (isDebug) {
     handleDebugInput = FileOpen("tick_data.csv", FILE_READ | FILE_CSV | FILE_COMMON);
-    while (!FileIsEnding(handle_tick)) {
-      string line = FileReadString(handle_tick);
+    while (!FileIsEnding(handleDebugInput)) {
+      string line = FileReadString(handleDebugInput);
       string values[];
       StringSplit(line, ',', values);
       double doubleValues[2] = {0};
