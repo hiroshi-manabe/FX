@@ -58,7 +58,7 @@ int findIndexBeforeMilliseconds(int index, uint milliseconds) {
 }
 
 void readParams(int file_handle, double &data[][]) {
-  while(!FileIsEnding(file_handle)) {
+  while (!FileIsEnding(file_handle)) {
     string line = FileReadString(file_handle);
     string values[];
     int num_values = StringSplit(line, ',', values);
@@ -148,6 +148,7 @@ OrderInfo order;
 
 int handleOrder = INVALID_HANDLE;
 int handleTicks = INVALID_HANDLE;
+int handleDebugInput = INVALID_HANDLE;
 int leverage = 490;
 string leverageFileName = "leverage.csv";
 string currentFileName = "";
@@ -203,6 +204,9 @@ void OnDeinit(const int reason) {
   }
   if (handleTicks != INVALID_HANDLE) {
     FileClose(handleTicks);
+  }
+  if (handleDebugInput != INVALID_HANDLE) {
+    FileClose(handleDebugInput);
   }
 }
 
@@ -346,8 +350,8 @@ double quadratic(double x, double a, double b, double c) {
 
 void OnTick() {
   if (isDebug) {
-    int handle_tick = FileOpen("tick_data.csv", FILE_READ | FILE_CSV | FILE_COMMON);
-    while(!FileIsEnding(handle_tick)) {
+    handleDebugInput = FileOpen("tick_data.csv", FILE_READ | FILE_CSV | FILE_COMMON);
+    while (!FileIsEnding(handle_tick)) {
       string line = FileReadString(handle_tick);
       string values[];
       StringSplit(line, ',', values);
