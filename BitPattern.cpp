@@ -149,7 +149,7 @@ OrderInfo order;
 int handleOrder = INVALID_HANDLE;
 int handleTicks = INVALID_HANDLE;
 int handleDebugInput = INVALID_HANDLE;
-int leverage = 490;
+int leverage = 390;
 string leverageFileName = "leverage.csv";
 string currentFileName = "";
 bool orderOnceForDebug = false;
@@ -167,7 +167,8 @@ int OnInit() {
 
   if (FileIsExist(leverageFileName, FILE_COMMON)) {
     int fileHandle = FileOpen(leverageFileName, FILE_READ | FILE_COMMON);
-    leverage = FileReadInteger(fileHandle);
+    String str = FileReadString(fileHanlde);
+    leverage = StrToInteger(str);
     FileClose(fileHandle);
   }
 
@@ -379,7 +380,6 @@ void OnTick() {
       handleTicks = FileOpen(tickDataFileName, FILE_WRITE | FILE_CSV, ',');
       currentFileName = tickDataFileName;
     }
-    FileWrite(handleTicks, GetTickCount(), Ask, Bid);
     OnTickMain(GetTickCount(), Ask, Bid);
   }
 }
@@ -407,7 +407,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
   setTime(curIndex, curTime);
   uint c = curIndex;
   curIndex++;
-  FileWrite(handleTicks, getTime(c), nAsk, nBid);
+  FileWrite(handleTicks, getTime(c), Ask, Bid);
 
   double rate = (double)nAsk / priceToNormalize;
   
@@ -522,7 +522,7 @@ void OnTickMain(uint tickCount, double ask, double bid) {
       double second_coef = 0.0;
     
       if (MathAbs(coeffs[0]) <= 3.0 && r_squared >= r_squared_param &&
-          indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 400 &&
+          indexBeforeWindow != c && timeWidth / (c - indexBeforeWindow) <= 220 &&
           curTime > prevTime + waitTime) {
 
         int output_array[];
