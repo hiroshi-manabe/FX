@@ -167,7 +167,7 @@ int OnInit() {
 
   if (FileIsExist(leverageFileName, FILE_COMMON)) {
     int fileHandle = FileOpen(leverageFileName, FILE_READ | FILE_COMMON);
-    String str = FileReadString(fileHanlde);
+    string str = FileReadString(fileHandle);
     leverage = StrToInteger(str);
     FileClose(fileHandle);
   }
