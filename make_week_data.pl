@@ -19,7 +19,7 @@ sub main() {
 
     my $cur_time = time;
     my (undef, undef, undef, $cur_day, $cur_mon, $cur_year, $cur_wday, undef, undef) = gmtime(time);
-    my $cur_sunday_time = int($cur_time / (60 * 60 * 24)) * 60 * 60 * 24 - $cur_wday * 60 * 60 * 24;
+    my $cur_sunday_time = int($cur_time / (60 * 60 * 24)) * 60 * 60 * 24 - ($cur_wday + ($cur_wday == 6 ? 0 : 7))  * 60 * 60 * 24;
     my $week_start_time = $cur_sunday_time - (($week_num - 1) * 60 * 60 * 24 * 7);
     
     my $week_index = 0;
@@ -57,6 +57,9 @@ sub main() {
             }
         }
         last if not $found_flag;
+        if ($week_start_time == $cur_sunday_time) {
+            last;
+        }
         $week_start_time += 24 * 60 * 60 * 7;
     }
 }

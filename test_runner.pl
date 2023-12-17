@@ -12,27 +12,22 @@ my $cmd;
 unlink $file;
 
 my @r_squared_values = @{$cfg->param('settings.r_squared_values')};
-
-#for my $k_value(10..15) {
-for my $k_value(10..10) {
-    $cfg->param("settings.k_value", $k_value);
-    for my $r_squared_start_index(0..$#r_squared_values - 1) {
-        my @r_temp = @r_squared_values[$r_squared_start_index..$#r_squared_values];
-        $cfg->param("settings.test_r_squared_values", \@r_temp);
+for my $r_squared_start_index(0..$#r_squared_values - 1) {
+    my @r_temp = @r_squared_values[$r_squared_start_index..$#r_squared_values];
+    $cfg->param("settings.test_r_squared_values", \@r_temp);
+    $cfg->save();
+    for my $min_profit(8..20) {
+        $cfg->param("settings.min_profit", $min_profit);
         $cfg->save();
-        for my $min_profit(8..20) {
-            $cfg->param("settings.min_profit", $min_profit);
+        $cmd = "./test_all.pl";
+        print "$cmd\n";
+        system $cmd;
+        for (my $bet = 0.1; $bet < 3.5; $bet += 0.1) {
+            $cfg->param("settings.bet", $bet);
             $cfg->save();
-            $cmd = "./test_all.pl";
+            $cmd = qq{./extract_matching.pl >> $file};
             print "$cmd\n";
             system $cmd;
-            for (my $bet = 0.1; $bet < 3.5; $bet += 0.1) {
-                $cfg->param("settings.bet", $bet);
-                $cfg->save();
-                $cmd = qq{./extract_matching.pl >> $file};
-                print "$cmd\n";
-                system $cmd;
-            }
         }
     }
 }
