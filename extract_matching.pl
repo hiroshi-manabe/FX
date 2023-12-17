@@ -20,8 +20,6 @@ my $cmd;
 
 for my $r_squared_start_index(0..$#r_squared_values - 1) {
     my @r_temp = @r_squared_values[$r_squared_start_index..$#r_squared_values];
-    $cfg->param("settings.test_r_squared_values", \@r_temp);
-    $cfg->save();
     for my $min_profit(8..30) {
         $cfg->param("settings.min_profit", $min_profit);
         $cfg->save();
@@ -50,7 +48,7 @@ for my $r_squared_start_index(0..$#r_squared_values - 1) {
                     my %dict;
                     my $j = $i + 1;
 
-                    for my $r_squared(@r_squared_values) {
+                    for my $r_squared(@r_temp) {
                         next if not exists $param_dict{$window_time}->{$r_squared};
                         my ($k, $threshold) = @{$param_dict{$window_time}->{$r_squared}};
                         my $filename = sprintf("$currency/%02d/$window_time/$r_squared.txt", $j);
@@ -91,7 +89,7 @@ for my $r_squared_start_index(0..$#r_squared_values - 1) {
             }
 
             print "Sum: $sum\n";
-            print "Final capital: $capital k_value: $k_value min_profit: $min_profit bet: $bet r_squared: $r_squared_values[0]\n";
+            print "Final capital: $capital k_value: $k_value min_profit: $min_profit bet: $bet r_squared: $r_temp[0]\n";
             print qq{======================================================================\n};
             if ($capital < $initial_capital) {
                 print "Final capital ($capital) is less than initial capital ($initial_capital). Aborting.\n";
