@@ -30,7 +30,7 @@ $cmd = qq{parallel -j 8 :::: commands.txt};
 printex($cmd);
 close OUT;
 
-for my $i(39..59) {
+for my $i($test_begin_week..$last_week) {
     my $k = $i - 20;
     my $params_path = qq{$currency/results_$i/params.csv};
     $cmd = qq{./find_optimal.py $i > $params_path};
