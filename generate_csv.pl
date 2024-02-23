@@ -42,12 +42,14 @@ sub gamma {
     }
 }
 
-if (@ARGV != 1) {
-    print "Usage: perl script_name.pl <last_week>\n";
+if (@ARGV != 2) {
+    print "Usage: perl generate_csv.pl <last_week> <test_week_num>\n";
     exit;
 }
 
-my $last_week = shift @ARGV;
+my $last_week = $ARGV[0];
+my $test_week_num = $ARGV[1];
+my $test_begin_week = $last_week - $test_week_num + 1;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
@@ -62,12 +64,14 @@ for my $window_time (@window_times) {
     mkdir $output_directory if not -d $output_directory;
     my $output_filename = sprintf("${root_directory}/results_%02d/${window_time}.csv", $last_week);
     open my $output_file, ">", $output_filename or die "Cannot open $output_filename: $!";
+    my $output_filename_dist = sprintf("${root_directory}/results_%02d/${window_time}_dist.txt", $last_week);
+    open my $output_file_dist, ">", $output_filename_dist or die "Cannot open $output_filename_dist: $!";
 
     for my $r_squared_value (@r_squared_values) {
         my %results;
         my $lines_all = 0;
 
-        for my $week($last_week - 19 .. $last_week) {
+        for my $week($test_begin_week .. $last_week) {
             my $file_path = sprintf("%s/%02d/%05d/%.4f.txt", $root_directory, $week, $window_time, $r_squared_value);
             my $lines_file_path = sprintf("%s/%02d/%05d/%.4f_lines.txt", $root_directory, $week, $window_time, $r_squared_value);
             open my $fp_lines_in, "<", $lines_file_path or die "Cannot open $lines_file_path: $!";
@@ -110,6 +114,7 @@ for my $window_time (@window_times) {
             close $fp_in;
         }
 
+        my $is_first = 1;
         for my $key (sort keys %results) {
             my ($r_squared_value, undef, undef) = split m{/}, $key;
             
@@ -117,17 +122,17 @@ for my $window_time (@window_times) {
             my $count = scalar @profits;
             my ($average, $std_dev) = (0, 0);
 
-#            my $n = $count;
-#            my $correction_factor = 1;
-#            if ($n < 30) {
-#                $correction_factor = sqrt(2 / ($n - 1)) * gamma($n / 2) / gamma(($n - 1) / 2);
-#            }
             $average = sum(@profits) / $count;
-#            my $variance = sum(map { ($_ - $average) ** 2 } @profits) / ($count - 1);
-#            $std_dev = sqrt($variance) / $correction_factor;
+            my $variance = sum(map { ($_ - $average) ** 2 } @profits) / $count;
+            if ($is_first) {
+                print $output_file_dist "$_\n" for @profits;
+                $is_first = 0;
+            }
+                        
+            $std_dev = sqrt($variance);
             print $output_file "$key,$count,$average,$std_dev\n";
         }
     }
-
+    close $output_file_dist;
     close $output_file;
 }

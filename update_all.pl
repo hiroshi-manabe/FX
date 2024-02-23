@@ -14,12 +14,12 @@ $cfg->save();
 
 system("php download.php");
 system("./update.pl");
-system("./make_week_data.pl 60");
+system("./make_week_data.pl 80");
 system("./add_data.pl 50");
 system("./add_past_data.pl");
 system("./make_past_data.pl");
-system("./parameter_search.pl 0 59 20");
-system("./extract_matching.pl 59 20 > result_all.txt");
+system("./parameter_search.pl 0 79 20");
+system("./extract_matching.pl 79 20 > result_all.txt");
 
 #./parameter_search.pl 50 20 20
 #./test.py --stdin --num_processes 8 < commands.txt
