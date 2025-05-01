@@ -51,7 +51,7 @@ for (my $development_week = $start_week + $training_weeks; $development_week <= 
     my $training_start_week = $development_week - $training_weeks;
     my $training_end_week = $development_week - 1;
     for my $window_time (@window_times) {
-        my $output_dir = sprintf("%s/%02d/%05d", $root_directory, $development_week, $window_time);
+        my $output_dir = sprintf("%s/%02d/%d", $root_directory, $development_week, $window_time);
         system("rm -fr $output_dir") if -d $output_dir;
         system("mkdir -p $output_dir") if not -d $output_dir;
         for my $r_squared_value (@r_squared_values) {

@@ -53,7 +53,6 @@ my $test_begin_week = $last_week - $test_week_num + 1;
 
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
-my $commission = $cfg->param('settings.commission');
 my @window_times = @{$cfg->param('settings.window_times')};
 my @r_squared_values = @{$cfg->param('settings.test_r_squared_values')};
 my $k_value = $cfg->param('settings.k_value');
@@ -72,8 +71,8 @@ for my $window_time (@window_times) {
         my $lines_all = 0;
 
         for my $week($test_begin_week .. $last_week) {
-            my $file_path = sprintf("%s/%02d/%05d/%.4f.txt", $root_directory, $week, $window_time, $r_squared_value);
-            my $lines_file_path = sprintf("%s/%02d/%05d/%.4f_lines.txt", $root_directory, $week, $window_time, $r_squared_value);
+            my $file_path = sprintf("%s/%02d/%d/%.4f.txt", $root_directory, $week, $window_time, $r_squared_value);
+            my $lines_file_path = sprintf("%s/%02d/%d/%.4f_lines.txt", $root_directory, $week, $window_time, $r_squared_value);
             open my $fp_lines_in, "<", $lines_file_path or die "Cannot open $lines_file_path: $!";
             my $lines = <$fp_lines_in>;
             chomp $lines;
@@ -104,8 +103,6 @@ for my $window_time (@window_times) {
                         elsif ($action eq "buy") {
                             $profit = $profit_buy;
                         }
-                        $profit -= $commission;
-                        $profit = 50 if $profit > 50; # outlier
                         my $key = sprintf("%.4f/%02d/%02d", $r_squared_value, $k_value, $threshold_value);
                         push @{$results{$key}}, $profit;
                    }

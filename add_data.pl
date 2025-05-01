@@ -6,11 +6,10 @@ use open IO => ":utf8", ":std";
 use Config::Simple;
 
 sub main() {
-    die "command <loss-cut>" if @ARGV != 1;
     my $cfg = new Config::Simple('config.ini');
     my $currency = $cfg->param('settings.currency_pair');
-    my @window_times = @{$cfg->param('settings.window_times')};
-    my $arg_str = join(" ", @ARGV, map { $_ / 4; } @window_times);
+    my $pl_limit = $cfg->param('settings.pl_limit');
+    my $spread_delta = $cfg->param('settings.currency_pair');
     
     my $is_first = 1;
     open OUT, ">", "commands.txt";
@@ -26,7 +25,7 @@ sub main() {
         elsif (not -d $dir_to_write) {
             mkdir $dir_to_write;
         }
-        my $cmd = qq{./add_data $arg_str < $_ > $file_to_write};
+        my $cmd = qq{./add_data $pl_limit $spread_delta < $_ > $file_to_write};
         print OUT $cmd."\n";
     }
     my $cmd = qq{parallel -v -j 8 :::: commands.txt};

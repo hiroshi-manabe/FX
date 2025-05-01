@@ -8,12 +8,13 @@ use Config::Simple;
 my $cfg = new Config::Simple('config.ini');
 my $currency = $cfg->param('settings.currency_pair');
 my @window_times = @{$cfg->param('settings.window_times')};
-my $threshold_rate = $cfg->param('settings.threshold_rate');
-my $commission = $cfg->param('settings.commission');
 
 my $last_week = $ARGV[0] // 59;      # Default value is 59 if not provided
 my $test_week_num = $ARGV[1] // 20;  # Default value is 20 if not provided
 my $test_begin_week = $test_week_num * 2 - 1;
+
+my $min_avr = $ARGV[2] // 0;
+my $min_samples = $ARGV[3] // 0;
 
 for my $i($test_begin_week..$last_week) {
     my $params_path = sprintf(qq{$currency/results_%02d/params.csv}, $i);
@@ -33,7 +34,7 @@ for my $i($test_begin_week..$last_week) {
         while (<$csv_file>) {
             chomp;
             my ($label, $samples, $avr, undef) = split/,/;
-            next if $avr <= 5;
+            next if $avr < $min_avr or $samples < $min_samples;
             $label =~ tr{/}{,};
             my $r_squared = (split/,/, $label)[0];
             if (not exists $exists_dict{$r_squared}) {

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <algorithm>
 
+using std::cerr;
 using std::cin;
 using std::cout;
 using std::getline;
@@ -50,8 +51,12 @@ int main(int argc, char *argv[]) {
     
     vector<string> future_data;
     stringstream ss_future(temp[5]);
-    while (getline(ss_future, token, '/')) {
+    while (getline(ss_future, token, ':')) {
       future_data.push_back(token);
+    }
+    if (future_data.size() != 2) {
+      cerr << "Format error\n";
+      exit(-1);
     }
 
     vector<string> coeffs_data;
@@ -60,25 +65,13 @@ int main(int argc, char *argv[]) {
       coeffs_data.push_back(token);
     }
 
-    for (int l = 0; l < future_data.size(); l++) {
-      vector<string> record;
-      stringstream ss_record(future_data[l]);
-      while (getline(ss_record, token, ':')) {
-        record.push_back(token);
-      }
+    for (int l = 0; l < coeffs_data.size(); l++) {
       vector<string> coeffs_record;
       stringstream ss_coeffs_record(coeffs_data[l]);
       while (getline(ss_coeffs_record, token, ':')) {
         coeffs_record.push_back(token);
       }
-      int future_width = stoi(record[0]);
-      int buy_profit = stoi(record[1]);
-      int end_time_buy = stoi(record[2]);
-      int sell_profit = stoi(record[3]);
-      int end_time_sell = stoi(record[4]);
-
       int past_width = stoi(coeffs_record[0]);
-      
       double coeffs[3] = { stod(coeffs_record[1]), stod(coeffs_record[2]), stod(coeffs_record[3]) };
       double fit = stod(coeffs_record[4]);
 
@@ -87,7 +80,7 @@ int main(int argc, char *argv[]) {
       for (int m = 0; m < n; ++m) {
         string r_squared_value_str = r_squared_value_strs[m];
         double r_squared_value = stod(r_squared_value_str);
-        if (abs(coeffs[0]) < 3 && fit > r_squared_value && time_data[i] > prev_time_dict[past_width][r_squared_value_str] + past_width + future_width) {
+        if (abs(coeffs[0]) < 3 && fit > r_squared_value && time_data[i] > prev_time_dict[past_width][r_squared_value_str] + past_width) {
           if (!density_checked) {
             density_checked = true;
             int j = i;
@@ -109,7 +102,7 @@ int main(int argc, char *argv[]) {
               continue;
             }
           }
-          cout << temp[0] << "," << past_width << "," << setprecision(8) << r_squared_value_str << "," << setprecision(16) << coeffs[1] << "," << coeffs[2] << "," << buy_profit << "," << sell_profit << "\n";
+          cout << temp[0] << "," << past_width << "," << setprecision(8) << r_squared_value_str << "," << setprecision(16) << coeffs[1] << "," << coeffs[2] << "," << future_data[0] << "," << future_data[1] << "\n";
           prev_time_dict[past_width][r_squared_value_str] = time_data[i];
         }
       }

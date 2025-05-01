@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <iostream>
 #include <istream>
 #include <sstream>
@@ -16,25 +17,22 @@ using std::vector;
 int main(int argc, char *argv[]) {
   std::ios::sync_with_stdio(false);
 
-  if (argc < 3 || argc > 102) {
+  if (argc != 3) {
     exit(-1);
   }
   
-  int n = argc - 2;
   int width = 0;
-  int window_times[100] = {0};
-  int losscut;
-  stringstream(argv[1]) >> losscut;
+  int pl_limit;
+  int spread_delta;
+  stringstream(argv[1]) >> pl_limit;
+  stringstream(argv[2]) >> spread_delta;
 
-  for (int i = 0; i < n; ++i) {
-    stringstream(argv[i + 2]) >> window_times[i];
-  }
-  
   string str;
   vector<string> orig_list;
   vector<int> time_list;
-  vector<int> ask_list;
-  vector<int> bid_list;
+  vector<vector<int>> ask_bid_list = {{}, {}};
+  vector<int>& ask_list = ask_bid_list[0];
+  vector<int>& bid_list = ask_bid_list[1];
   while (cin >> str) {
     orig_list.push_back(str);
     stringstream sstr(str);
@@ -52,48 +50,23 @@ int main(int argc, char *argv[]) {
   }
   for (size_t i = 0; i < orig_list.size(); ++i) {
     cout << orig_list[i] << ",";
-    int ask = ask_list[i];
-    int start_time = time_list[i];
-    int results[2][100] = {{0}, {0}};
-    int result_times[2][100];
-    fill_n(&result_times[0][0], 2 * 100, -1);
+    int results[2] = { -pl_limit, -pl_limit };
 
-    for (int buy_or_sell = 0; buy_or_sell < 2; ++buy_or_sell) {
-      for (size_t j = 0; j < n; ++j) {
-        for (size_t k = i; k < orig_list.size(); ++k) {
-          bool should_exit_trade = false;
-          int window_time = window_times[j];
-          int desired_diff = (buy_or_sell == 0) ? 1 : -1;
-          
-          if ((ask_list[k] - ask_list[i]) * desired_diff <= -losscut) {
-            should_exit_trade = true;
-          }
-          else if (time_list[k] > start_time + window_time) {
-            int index_before_window = k;
-
-            while (time_list[index_before_window] > time_list[k] - window_time) {
-              --index_before_window;
-            }
-
-            if ((ask_list[k] - ask_list[index_before_window]) * desired_diff < 0) {
-              should_exit_trade = true;
-            }
-          }
-
-          if (should_exit_trade) {
-            results[buy_or_sell][j] = (buy_or_sell == 0 ? 1 : -1) * (ask_list[k] - ask);
-            result_times[buy_or_sell][j] = time_list[k];
-            break;
-          }
+    for (bool is_sell : {false, true}) {
+      int index = is_sell ? 1 : 0;
+      int profit_sign = is_sell ? -1 : 1;
+      int signed_spread_delta = spread_delta * -profit_sign;
+      vector<int>& order_list = is_sell ? bid_list : ask_list;
+      vector<int>& settle_list = is_sell ? ask_list : bid_list;
+      for (size_t j = i; j < orig_list.size(); ++j) {
+        int pl = (settle_list[j] + signed_spread_delta - order_list[i]) * profit_sign;
+        if (abs(pl) >= pl_limit) {
+          results[index] = pl;
+          break;
         }
       }
     }
-    for (size_t j = 0; j < n; ++j) {
-      cout << window_times[j] << ":" << results[0][j] << ":" << result_times[0][j] << ":" << results[1][j] << ":" << result_times[1][j];
-      if (j < n - 1) {
-        cout << "/";
-      }
-    }
+    cout <<  results[0] << ":" << results[1];
     cout << "\n";
   }
 }
