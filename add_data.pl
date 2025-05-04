@@ -9,7 +9,7 @@ sub main() {
     my $cfg = new Config::Simple('config.ini');
     my $currency = $cfg->param('settings.currency_pair');
     my $pl_limit = $cfg->param('settings.pl_limit');
-    my $spread_delta = $cfg->param('settings.currency_pair');
+    my $spread_delta = $cfg->param('settings.spread_delta');
     
     my $is_first = 1;
     open OUT, ">", "commands.txt";
