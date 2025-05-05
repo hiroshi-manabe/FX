@@ -33,8 +33,8 @@ async def main(pair, weeks, out, concurrency, force):
     start = now - dt.timedelta(days=now.weekday(), hours=now.hour)
     tasks, sem = [], asyncio.Semaphore(concurrency)
     async with aiohttp.ClientSession() as session:
-        for w in range(weeks):
-            day0 = start - dt.timedelta(weeks=w)
+        for w in range(1, weeks + 1):
+            day0 = start - dt.timedelta(weeks=w+1)
             for h in range(24 * 7):
                 t = day0 + dt.timedelta(hours=h)
                 url = BASE.format(pair=pair,

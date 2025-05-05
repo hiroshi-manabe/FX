@@ -26,6 +26,9 @@ def weekly(pair: str, iso_week: str) -> Path:
     """data/weekly/USDJPY/week_2025-13.csv"""
     return DATA_ROOT / "weekly" / pair / f"week_{iso_week}.csv"
 
+def dukascopy_raw_root() -> Path:
+    return DATA_ROOT / "raw" / "dukascopy"
+
 def label_pl(pair: str, iso_week: str, pl_tag: str = "pl30") -> Path:
     """data/labels/pl30/USDJPY/week_2025-13.csv"""
     return (

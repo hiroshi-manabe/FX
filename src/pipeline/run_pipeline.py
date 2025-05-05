@@ -34,7 +34,7 @@ DEFAULT_ORDER = [
 # Mapping: stage name → command (list)
 STAGES = {
     "download_raw"  : ["python", "src/pipeline/download_raw.py"],
-    "bin_to_csv"    : ["perl",   "src/pipeline/convert_bin_to_csv.pl"],
+    "bin_to_csv"    : ["python", "src/pipeline/bin_to_csv.py"],
     "weekify"       : ["perl",   "src/pipeline/weekify.pl"],
     "label_pl"      : ["perl",   "src/pipeline/label_pl.pl"],
     "fit_quadratic" : ["perl",   "src/pipeline/fit_quadratic.pl"],
