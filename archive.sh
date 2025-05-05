@@ -3,7 +3,7 @@
 set -e
 
 CODE_ZIP="fx_code_$(git rev-parse --short HEAD).zip"
-DATA_ZIP="fx_sample_data.zip"
+DATA_ZIP="fx_data.zip"
 
 # Code & configs (no data, no build artefacts)
 git archive --format=zip --output="$CODE_ZIP" --prefix=fx/ HEAD
