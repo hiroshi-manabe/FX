@@ -21,7 +21,6 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
   
-  int width = 0;
   int pl_limit;
   int spread_delta;
   stringstream(argv[1]) >> pl_limit;

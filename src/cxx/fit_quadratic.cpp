@@ -27,7 +27,6 @@ bool fitIt(
   int n = order;
   int np1 = n + 1;
   int np2 = n + 2;
-  int tnp1 = 2 * n + 1;
   double tmp;
 
   // a = vector to store final coefficients.
@@ -134,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   int price_to_normalize = 100000;
   
-  for (int i = 0; i < orig_list.size(); ++i) {
+  for (size_t i = 0; i < orig_list.size(); ++i) {
     int cur_time = time_list[i];
     int cur_price = price_list[i];
     double rate = (double)cur_price / price_to_normalize;

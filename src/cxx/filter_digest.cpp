@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
       coeffs_data.push_back(token);
     }
 
-    for (int l = 0; l < coeffs_data.size(); l++) {
+    for (size_t l = 0; l < coeffs_data.size(); l++) {
       vector<string> coeffs_record;
       stringstream ss_coeffs_record(coeffs_data[l]);
       while (getline(ss_coeffs_record, token, ':')) {
