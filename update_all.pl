@@ -5,10 +5,11 @@ use warnings;
 system("php download.php");
 system("./update.pl");
 system("./make_week_data.pl 45");
-system("./add_data.pl");
-system("./add_past_data.pl");
-system("./make_past_data.pl");
+system("./label_pl.pl");
+system("./fit_quadratic.pl");
+system("./filter_digest.pl");
 system("./parameter_search.pl 0 44 15");
+system("./generate_csv.pl 44 15");
 system("./extract_matching.pl 44 15 > result_all.txt");
 
 #./parameter_search.pl 50 20 20

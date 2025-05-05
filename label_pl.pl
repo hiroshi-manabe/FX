@@ -4,19 +4,18 @@ use utf8;
 use open IO => ":utf8", ":std";
 
 use Config::Simple;
-use IO::Handle;
 
 sub main() {
     my $cfg = new Config::Simple('config.ini');
     my $currency = $cfg->param('settings.currency_pair');
-    my @window_times = @{$cfg->param('settings.window_times')};
-    my $arg_str = join(" ", @window_times);
+    my $pl_limit = $cfg->param('settings.pl_limit');
+    my $spread_delta = $cfg->param('settings.spread_delta');
     
     my $is_first = 1;
     open OUT, ">", "commands.txt";
-    while (<$currency/weekly_data/week_*.csv>) {
+    while (<$currency/weekly/week_*.csv>) {
         my $file_to_write = $_;
-        $file_to_write =~ s{/weekly_data/}{/weekly_past_data/};
+        $file_to_write =~ s{/weekly/}{/weekly_data/};
         my $dir_to_write = $file_to_write;
         $dir_to_write =~ s{[^/]*$}{};
         if ($is_first and -d $dir_to_write) {
@@ -26,9 +25,8 @@ sub main() {
         elsif (not -d $dir_to_write) {
             mkdir $dir_to_write;
         }
-        my $cmd = qq{./add_past_data $arg_str < $_ > $file_to_write};
-        print OUT "$cmd\n";
-        system $cmd;
+        my $cmd = qq{./label_pl $pl_limit $spread_delta < $_ > $file_to_write};
+        print OUT $cmd."\n";
     }
     my $cmd = qq{parallel -v -j 8 :::: commands.txt};
     system($cmd);
