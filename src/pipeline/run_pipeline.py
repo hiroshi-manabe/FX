@@ -18,13 +18,6 @@ python src/pipeline/run_pipeline.py --start fit_quadratic --end digest \
 from pathlib import Path
 import argparse, os, subprocess, sys
 
-env = os.environ.copy()
-env["PATH"] = f"{Path('build/bin').resolve()}:{env['PATH']}"
-env_var = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
-env[env_var] = f"{Path('build/lib').resolve()}:{env.get(env_var,'')}"
-# NEW: make src/ visible to every child Python
-env["PYTHONPATH"] = f"{Path('src').resolve()}:{env.get('PYTHONPATH','')}"
-
 # -------------------------------------------------------------------------
 # Edit this ordered list if you add / remove stages.
 DEFAULT_ORDER = [
@@ -81,7 +74,7 @@ def main():
     env["PATH"]              = f"{Path('build/bin').resolve()}:{env['PATH']}"
     env_var = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
     env[env_var] = f"{Path('build/lib').resolve()}:{env.get(env_var,'')}"
-
+    env["PYTHONPATH"] = f"{Path('src').resolve()}:{env.get('PYTHONPATH', '')}"
     # Per‑stage execution
     for stage in seq:
         cmd = STAGES[stage] + [
