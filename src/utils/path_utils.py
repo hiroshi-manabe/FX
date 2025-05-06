@@ -23,37 +23,37 @@ def raw_tick(pair: str, d: date, hour: int) -> Path:
         / f"{hour:02d}h_ticks.csv"
     )
 
-def weekly(pair: str, iso_week: str) -> Path:
+def weekly(pair: str, monday_date: str) -> Path:
     """data/weekly/USDJPY/week_2025-13.csv"""
-    return DATA_ROOT / "weekly" / pair / f"week_{iso_week}.csv"
+    return DATA_ROOT / "weekly" / pair / f"week_{monday_date}.csv"
 
 def dukascopy_raw_root() -> Path:
     return DATA_ROOT / "raw" / "dukascopy"
 
-def label_pl(pair: str, iso_week: str, pl_tag: str = "pl30") -> Path:
+def label_pl(pair: str, monday_date: str, pl_tag: str = "pl30") -> Path:
     """data/labels/pl30/USDJPY/week_2025-13.csv"""
     return (
-        DATA_ROOT / "labels" / pl_tag / pair / f"week_{iso_week}.csv"
+        DATA_ROOT / "labels" / pl_tag / pair / f"week_{monday_date}.csv"
     )
 
-def features(pair: str, iso_week: str, window: int, alg="quadratic_v1") -> Path:
+def features(pair: str, monday_date: str, window: int, alg="quadratic_v1") -> Path:
     tag = ALG_TAGS[alg]
     return (
         DATA_ROOT
         / "features" / tag / pair
-        / f"window_{window}" / f"week_{iso_week}.csv"
+        / f"window_{window}" / f"week_{monday_date}.csv"
     )
 
-def knn_model(pair: str, iso_week: str, window: int, r2: float, alg="knn_v1"):
+def knn_model(pair: str, monday_date: str, window: int, r2: float, alg="knn_v1"):
     tag = ALG_TAGS[alg]
     return (
         DATA_ROOT
         / "models" / tag / pair
-        / f"window_{window}" / f"R2_{r2:.4f}" / f"week_{iso_week}.pkl"
+        / f"window_{window}" / f"R2_{r2:.4f}" / f"week_{monday_date}.pkl"
     )
 
-def report(pair: str, iso_week: str) -> Path:
-    return DATA_ROOT / "reports" / pair / iso_week / "summary.csv"
+def report(pair: str, monday_date: str) -> Path:
+    return DATA_ROOT / "reports" / pair / monday_date / "summary.csv"
 
 # Utilities
 def ensure_parent(p: Path) -> Path:

@@ -35,7 +35,7 @@ DEFAULT_ORDER = [
 STAGES = {
     "download_raw"  : ["python", "src/pipeline/download_raw.py"],
     "bin_to_csv"    : ["python", "src/pipeline/bin_to_csv.py"],
-    "weekify"       : ["perl",   "src/pipeline/weekify.pl"],
+    "weekify"       : ["python",   "src/pipeline/weekify.py"],
     "label_pl"      : ["perl",   "src/pipeline/label_pl.pl"],
     "fit_quadratic" : ["perl",   "src/pipeline/fit_quadratic.pl"],
     "digest"        : ["perl",   "src/pipeline/digest.pl"],

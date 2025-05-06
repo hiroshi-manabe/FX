@@ -1,10 +1,14 @@
-package path_utils;
+package FX::Paths
 use strict;
 use warnings;
 use Exporter 'import';
 use FindBin;
+
+# make Python’s path_utils visible
 use Inline Python => <<'END_PY';
-import path_utils as pu
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[2] / "src" / "utils"))
+import path_utils
 END_PY
 
 our @EXPORT_OK = qw(
@@ -16,37 +20,47 @@ our @EXPORT_OK = qw(
     ensure_parent
 );
 
+sub raw_tick {
+    my ($pair, $date, $hour) = @_;
+    return py_eval("str(path_utils.weekly('$pair', '$date', $hour))");
+}
+
 # Example: "data/weekly/USDJPY/week_2025-13.csv"
 sub weekly_path {
     my ($pair, $iso_week) = @_;
-    return py_eval("str(pu.weekly('$pair', '$iso_week'))");
+    return py_eval("str(path_utils.weekly('$pair', '$iso_week'))");
 }
+
+sub ducascopy_raw_root_path {
+   my ($pair, $iso_week) = @_;
+    return py_eval("str(path_utils.dukascopy_raw_root())");
+}}
 
 # Example: "data/labels/pl30/USDJPY/week_2025-13.csv"
 sub label_path {
     my ($pair, $iso_week, $tag) = @_;
     $tag //= "pl30";
-    return py_eval("str(pu.label_pl('$pair', '$iso_week', '$tag'))");
+    return py_eval("str(path_utils.label_pl('$pair', '$iso_week', '$tag'))");
 }
 
 # Example: "data/features/quad_v1/USDJPY/window_10000/week_2025-13.csv"
 sub feature_path {
     my ($pair, $iso_week, $window, $alg) = @_;
     $alg //= "quadratic_v1";
-    return py_eval("str(pu.features('$pair', '$iso_week', $window, '$alg'))");
+    return py_eval("str(path_utils.features('$pair', '$iso_week', $window, '$alg'))");
 }
 
 # Example: "data/models/knn_v1/USDJPY/window_10000/R2_0.9730/week_2025-13.pkl"
 sub knn_model_path {
     my ($pair, $iso_week, $window, $r2, $alg) = @_;
     $alg //= "knn_v1";
-    return py_eval("str(pu.knn_model('$pair', '$iso_week', $window, $r2, '$alg'))");
+    return py_eval("str(path_utils.knn_model('$pair', '$iso_week', $window, $r2, '$alg'))");
 }
 
 # Example: "data/reports/USDJPY/2025-13/summary.csv"
 sub report_path {
     my ($pair, $iso_week) = @_;
-    return py_eval("str(pu.report('$pair', '$iso_week'))");
+    return py_eval("str(path_utils.report('$pair', '$iso_week'))");
 }
 
 # Ensures parent directory exists

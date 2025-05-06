@@ -6,6 +6,9 @@ use open IO => ":utf8", ":std";
 use Config::Simple;
 use Time::Local qw(timegm);
 
+use lib "$FindBin::Bin/../../lib";  # adjust two dirs up from src/pipeline/
+use FX::Paths qw(weekly_path);
+
 sub main() {
     die "command <week num>" if @ARGV != 1;
     my $week_num = shift @ARGV;
@@ -14,8 +17,8 @@ sub main() {
     my $currency = $cfg->param('settings.currency_pair');
     die "$currency: Not found" if not -d $currency;
     
-    mkdir "$currency/weekly" if not -d "$currency/weekly";
-    system("rm $currency/weekly/*");
+    my $weekly_path = weekly_path();
+    system("rm $weekly_path/*");
 
     my $cur_time = time;
     my (undef, undef, undef, $cur_day, $cur_mon, $cur_year, $cur_wday, undef, undef) = gmtime(time);
