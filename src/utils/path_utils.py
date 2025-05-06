@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import date
 
 DATA_ROOT = Path("data")           # git‑ignored
+PROJECT_ROOT = Path("")           # git‑ignored
 ALG_TAGS   = {
     "quadratic_v1": "quad_v1",
     "knn_v1": "knn_v1",
