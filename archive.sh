@@ -2,7 +2,7 @@
 # archive.sh  --  produce two zip files the same way every time.
 set -e
 
-CODE_ZIP="fx_code_$(git rev-parse --short HEAD).zip"
+CODE_ZIP="fx_code.zip"
 DATA_ZIP="fx_data.zip"
 
 # Code & configs (no data, no build artefacts)
