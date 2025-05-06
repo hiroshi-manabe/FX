@@ -9,6 +9,7 @@ Usage:
 The script mirrors Dukascopy's folder hierarchy, month 00‑11.
 """
 
+from pathlib import Path
 import argparse, asyncio, aiohttp, datetime as dt, os, sys, pathlib, tqdm
 
 BASE = "https://datafeed.dukascopy.com/datafeed/{pair}/{y}/{m:02d}/{d:02d}/{h:02d}h_ticks.bi5"
@@ -34,7 +35,7 @@ async def main(pair, weeks, out, concurrency, force):
     tasks, sem = [], asyncio.Semaphore(concurrency)
     async with aiohttp.ClientSession() as session:
         for w in range(1, weeks + 1):
-            day0 = start - dt.timedelta(weeks=w+1)
+            day0 = start - dt.timedelta(weeks=w)
             for h in range(24 * 7):
                 t = day0 + dt.timedelta(hours=h)
                 url = BASE.format(pair=pair,
