@@ -25,7 +25,7 @@ def raw_tick(pair: str, d: date, hour: int) -> Path:
         / f"{hour:02d}h_ticks.csv"
     )
 
-def weekly(pair: str, monday_date: str) -> Path:
+def weekly_file(pair: str, monday_date: str) -> Path:
     """data/weekly/USDJPY/week_2025-13.csv"""
     return DATA_ROOT / "weekly" / pair / f"week_{monday_date}.csv"
 
@@ -36,7 +36,7 @@ def weekly_dir(pair: str) -> Path:
 def dukascopy_raw_root() -> Path:
     return DATA_ROOT / "raw" / "dukascopy"
 
-def label_pl(pair: str, monday_date: str, pl_tag: str = "pl30") -> Path:
+def label_pl_file(pair: str, monday_date: str, pl_tag: str = "pl30") -> Path:
     """data/labels/pl30/USDJPY/week_2025-13.csv"""
     return (
         DATA_ROOT / "labels" / pl_tag / pair / f"week_{monday_date}.csv"

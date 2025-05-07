@@ -18,7 +18,7 @@ def monday_date(ts: dt.datetime) -> dt.date:
     return monday.date()
 
 def process_week(pair: str, monday: dt.date):
-    out_file = path_utils.weekly(pair, monday.isoformat())
+    out_file = path_utils.weekly_file(pair, monday.isoformat())
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     week_ms0 = int(dt.datetime.combine(monday, dt.time(0),
