@@ -1,4 +1,5 @@
-# src/utils/path_utils.py
+#!/usr/bin/env python3
+
 """
 Canonical path helpers for the FX pipeline.
 Change ONE place – everything else follows.
@@ -6,6 +7,7 @@ Change ONE place – everything else follows.
 
 from pathlib import Path
 from datetime import date
+from utils import config
 
 DATA_ROOT = Path("data")           # git‑ignored
 PROJECT_ROOT = Path("")           # git‑ignored
@@ -27,6 +29,10 @@ def weekly(pair: str, monday_date: str) -> Path:
     """data/weekly/USDJPY/week_2025-13.csv"""
     return DATA_ROOT / "weekly" / pair / f"week_{monday_date}.csv"
 
+def weekly_dir(pair: str) -> Path:
+    """data/weekly/USDJPY/"""
+    return DATA_ROOT / "weekly" / pair
+
 def dukascopy_raw_root() -> Path:
     return DATA_ROOT / "raw" / "dukascopy"
 
@@ -36,12 +42,20 @@ def label_pl(pair: str, monday_date: str, pl_tag: str = "pl30") -> Path:
         DATA_ROOT / "labels" / pl_tag / pair / f"week_{monday_date}.csv"
     )
 
-def features(pair: str, monday_date: str, window: int, alg="quadratic_v1") -> Path:
-    tag = ALG_TAGS[alg]
+def label_pl_dir(pair: str, pl_tag: str = "pl30") -> Path:
+    """data/labels/pl30/USDJPY/week_2025-13.csv"""
     return (
-        DATA_ROOT
-        / "features" / tag / pair
-        / f"window_{window}" / f"week_{monday_date}.csv"
+        DATA_ROOT / "labels" / pl_tag / pair
+    )
+
+def quadratic_tag() -> str:
+    return config.get("pipeline", "quadratic_alg_tag")
+
+def features(pair: str, monday: str, window: int, alg: str | None = None) -> Path:
+    tag = alg or quadratic_tag()
+    return (
+        DATA_ROOT / "features" / tag / pair /
+        f"window_{window}" / f"week_{monday}.csv"
     )
 
 def knn_model(pair: str, monday_date: str, window: int, r2: float, alg="knn_v1"):
