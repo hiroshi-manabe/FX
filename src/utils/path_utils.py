@@ -16,47 +16,38 @@ ALG_TAGS   = {
     "knn_v1": "knn_v1",
 }
 
+def dukascopy_raw_root() -> Path:
+    return DATA_ROOT / "raw" / "dukascopy"
+
 def raw_tick(pair: str, d: date, hour: int) -> Path:
-    """Mirror Dukascopy: data/raw/dukascopy/USDJPY/2025‑03‑25/09h_ticks.csv"""
     return (
-        DATA_ROOT
-        / "raw" / "dukascopy" / pair
+        dukascopy_raw_root() / pair
         / d.strftime("%Y-%m-%d")
         / f"{hour:02d}h_ticks.csv"
     )
 
-def weekly_file(pair: str, monday_date: str) -> Path:
-    """data/weekly/USDJPY/week_2025-13.csv"""
-    return DATA_ROOT / "weekly" / pair / f"week_{monday_date}.csv"
-
 def weekly_dir(pair: str) -> Path:
-    """data/weekly/USDJPY/"""
     return DATA_ROOT / "weekly" / pair
 
-def dukascopy_raw_root() -> Path:
-    return DATA_ROOT / "raw" / "dukascopy"
-
-def label_pl_file(pair: str, monday_date: str, pl_tag: str = "pl30") -> Path:
-    """data/labels/pl30/USDJPY/week_2025-13.csv"""
-    return (
-        DATA_ROOT / "labels" / pl_tag / pair / f"week_{monday_date}.csv"
-    )
+def weekly_file(pair: str, monday_date: str) -> Path:
+    return weekly_dir(pair) / f"week_{monday_date}.csv"
 
 def label_pl_dir(pair: str, pl_tag: str = "pl30") -> Path:
-    """data/labels/pl30/USDJPY/week_2025-13.csv"""
-    return (
-        DATA_ROOT / "labels" / pl_tag / pair
-    )
+    return DATA_ROOT / "labels" / pl_tag / pair
+
+def label_pl_file(pair: str, monday_date: str, pl_tag: str = "pl30") -> Path:
+    return label_pl_dir(pair, pl_tag) / f"week_{monday_date}.csv"
+
+def features_dir(pair: str, window: int, alg: str | None = None) -> Path:
+    tag = alg or quadratic_tag()
+    return DATA_ROOT / "features" / tag / pair / f"window_{window}"
+
+def features_file(pair: str, monday_date: str, window: int, alg: str | None = None) -> Path:
+    return features_dir(pair, window, alg) / f"week_{monday_date}.csv"
 
 def quadratic_tag() -> str:
     return config.get("pipeline", "quadratic_alg_tag")
 
-def features(pair: str, monday: str, window: int, alg: str | None = None) -> Path:
-    tag = alg or quadratic_tag()
-    return (
-        DATA_ROOT / "features" / tag / pair /
-        f"window_{window}" / f"week_{monday}.csv"
-    )
 
 def knn_model(pair: str, monday_date: str, window: int, r2: float, alg="knn_v1"):
     tag = ALG_TAGS[alg]
