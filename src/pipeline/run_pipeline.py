@@ -11,7 +11,7 @@ python src/pipeline/run_pipeline.py --pair USDJPY --weeks 12
 python src/pipeline/run_pipeline.py --start bin_to_csv --end weekify
 
 # Re‑run fit+digest on already‑prepared data
-python src/pipeline/run_pipeline.py --start fit_quadratic --end digest \
+python src/pipeline/run_pipeline.py --start fit_quadratic --end filter_digest \
        --pair USDJPY
 """
 
@@ -26,7 +26,7 @@ DEFAULT_ORDER = [
     "weekify",
     "label_pl",
     "fit_quadratic",
-    "digest",
+    "filter_digest",
     "knn_backtest",
     "aggregate",
 ]
@@ -35,10 +35,10 @@ DEFAULT_ORDER = [
 STAGES = {
     "download_raw"  : ["python", "src/pipeline/download_raw.py"],
     "bin_to_csv"    : ["python", "src/pipeline/bin_to_csv.py"],
-    "weekify"       : ["python",   "src/pipeline/weekify.py"],
-    "label_pl"      : ["python",   "src/pipeline/label_pl.py"],
-    "fit_quadratic" : ["python",   "src/pipeline/fit_quadratic.py"],
-    "digest"        : ["perl",   "src/pipeline/digest.pl"],
+    "weekify"       : ["python", "src/pipeline/weekify.py"],
+    "label_pl"      : ["python", "src/pipeline/label_pl.py"],
+    "fit_quadratic" : ["python", "src/pipeline/fit_quadratic.py"],
+    "filter_digest" : ["python", "src/pipeline/filter_digest.py"],
     "knn_backtest"  : ["perl",   "src/pipeline/knn_backtest.pl"],
     "aggregate"     : ["perl",   "src/pipeline/aggregate_results.pl"],
 }

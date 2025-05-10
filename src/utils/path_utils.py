@@ -45,9 +45,15 @@ def features_dir(pair: str, window: int, alg: str | None = None) -> Path:
 def features_file(pair: str, monday_date: str, window: int, alg: str | None = None) -> Path:
     return features_dir(pair, window, alg) / f"week_{monday_date}.csv"
 
+def digest_dir(pair: str, window: int, alg: str | None = None) -> Path:
+    tag = alg or quadratic_tag()
+    return DATA_ROOT / "digest" / tag / pair / f"window_{window}"
+
+def digest_file(pair: str, monday: str, window: int, alg: str | None = None) -> Path:
+    return digest_dir(pair, window, alg) / f"week_{monday}.csv"
+
 def quadratic_tag() -> str:
     return config.get("pipeline", "quadratic_alg_tag")
-
 
 def knn_model(pair: str, monday_date: str, window: int, r2: float, alg="knn_v1"):
     tag = ALG_TAGS[alg]
