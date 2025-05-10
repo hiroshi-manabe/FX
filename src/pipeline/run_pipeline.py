@@ -60,6 +60,7 @@ def main():
     ap.add_argument("--end",   choices=DEFAULT_ORDER, default=DEFAULT_ORDER[-1])
     ap.add_argument("--extra", nargs=argparse.REMAINDER,
                     help="additional args forwarded to every stage")
+    ap.add_argument("--force", action="store_true", default=False)
     args = ap.parse_args()
     extra = args.extra or []
 
@@ -79,8 +80,10 @@ def main():
     for stage in seq:
         cmd = STAGES[stage] + [
             "--pair", args.pair,
-            "--weeks", str(args.weeks)   # downloader uses it; others ignore
+            "--weeks", str(args.weeks),   # downloader uses it; others ignore
         ] + extra
+        if args.force:
+            cmd.append("--force")        
         run(cmd, env=env)
 
     print("✔ Pipeline finished OK")

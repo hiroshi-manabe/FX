@@ -13,20 +13,17 @@ WINDOWS  = config.getlist("pipeline", "windows", int)
 ALG_TAG  = config.get("pipeline", "quadratic_alg_tag")
 PL_TAG   = config.get("pipeline", "pl_tag")
 
-# Thresholds
 R2_THR   = config.get("digest", "r2_threshold", float)
 A_MIN    = config.get("digest", "min_abs_a", float)
 A_MAX    = config.get("digest", "max_abs_a", float)
 B_MIN    = config.get("digest", "min_abs_b", float)
 B_MAX    = config.get("digest", "max_abs_b", float)
 
-
 def weekly_dates(pair: str, window: int, limit: int | None):
     feats = sorted(path_utils.features_dir(pair, window, ALG_TAG).glob("week_*.csv"))
     if limit:
         feats = feats[-limit:]
     return [p.stem.split("_")[1] for p in feats]
-
 
 def row_ok(r2: float, a: float, b: float) -> bool:
     return (
@@ -35,24 +32,25 @@ def row_ok(r2: float, a: float, b: float) -> bool:
         B_MIN <= abs(b) <= B_MAX
     )
 
-
-def process(pair: str, monday: str, window: int) -> str:
+def process(pair: str, monday: str, window: int, force: bool) -> str:
     src = path_utils.features_file(pair, monday, window, ALG_TAG)
     if not src.exists():
         return "skip"
     dst = path_utils.digest_file(pair, monday, window, ALG_TAG)
-    if dst.exists():
+    if dst.exists() and not force:
         return "skip"
     kept = []
     with src.open() as fin:
-        reader = csv.reader(fin)
-        for row in reader:
+        for row in (line.strip().split(",") for line in fin):
+            if len(row) < 7:
+                continue
+            parts = row[6].split(":")
             try:
-                r2 = float(row[2])
-                a  = float(row[3])
-                b  = float(row[4])
+                r2 = float(parts[4])
+                a  = float(parts[1])
+                b  = float(parts[2])
             except (IndexError, ValueError):
-                continue  # malformed line
+                continue
             if row_ok(r2, a, b):
                 kept.append(",".join(row))
     if kept:
@@ -61,20 +59,19 @@ def process(pair: str, monday: str, window: int) -> str:
         return "ok"
     return "skip_empty"
 
-
-def main(pair: str, limit: int | None):
+def main(pair: str, limit: int | None, force: bool):
     for w in WINDOWS:
         stats = {"ok": 0, "skip": 0, "skip_empty": 0}
         for monday in weekly_dates(pair, w, limit):
-            res = process(pair, monday, w)
+            res = process(pair, monday, w, force)
             stats[res] += 1
         print(f"digest window {w}: ", *(f"{k}={v}" for k, v in stats.items()))
 
 if __name__ == "__main__":
-    import sys, argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--pair", default="USDJPY")
     ap.add_argument("--weeks", type=int, default=None)
+    ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
     weeks = args.weeks or config.get("pipeline", "weeks_default", int)
-    main(args.pair.upper(), weeks)
+    main(args.pair.upper(), weeks, args.force)

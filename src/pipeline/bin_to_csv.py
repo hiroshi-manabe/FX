@@ -29,7 +29,7 @@ def lzma_decompress(src: Path, dst: Path):
     dst.write_bytes(data)
     return True
 
-def process(bi5: Path):
+def process(bi5: Path, force: bool):
     bin_ = bi5.with_suffix(".bin")
     csv  = bi5.with_suffix(".csv")
     # Step 1: ensure .bin
@@ -38,7 +38,7 @@ def process(bi5: Path):
         if not ok:
             return "skip_empty"
     # Step 2: ensure .csv
-    if not csv.exists():
+    if force or not csv.exists():
         try:
             subprocess.check_call([BIN2CSV, str(bin_)], stdout=csv.open("wb"))
             return "ok"
@@ -46,11 +46,11 @@ def process(bi5: Path):
             return f"err:{e.returncode}"
     return "skip"
 
-def main(pair):
+def main(pair: str, force: bool):
     targets = list((RAWROOT / pair).rglob("*.bi5"))
     if not targets:
         sys.exit(f"No .bi5 files found under {RAWROOT/pair}")
-    results = ThreadPool(CONCURRENCY).map(process, targets)
+    results = ThreadPool(CONCURRENCY).starmap(process, [(f, force) for f in targets])
     print("bin→csv",
           f"ok={results.count('ok')}",
           f"skip={results.count('skip') + results.count('skip_empty')}",
@@ -60,5 +60,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--pair", default="USDJPY")
     ap.add_argument("--weeks")
+    ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
-    main(args.pair.upper())
+    main(args.pair.upper(), args.force)
