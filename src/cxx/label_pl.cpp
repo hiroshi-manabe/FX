@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <iostream>
-#include <istream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -14,58 +13,100 @@ using std::string;
 using std::stringstream;
 using std::vector;
 
+/*
+ * label_pl.cpp  — determine P/L for a BUY and SELL opened at every tick.
+ * A trade closes when either   ±PL_limit   is hit OR when the fixed
+ * decision-horizon (ms) elapses.  Entry prices are *spread-adjusted* to
+ * reflect a real broker spread: we treat the BUY entry as ask0+spread_delta
+ * and the SELL entry as bid0-spread_delta.
+ *
+ * Output row:  original baseline columns +
+ *              buyPL:buyExitTs:sellPL:sellExitTs  (col 5)
+ *
+ * CLI: label_pl <pl_limit> <spread_delta> <decision_horizon_ms>
+ */
+
 int main(int argc, char *argv[]) {
-  std::ios::sync_with_stdio(false);
-
-  if (argc != 3) {
-    exit(-1);
-  }
-  
-  int pl_limit;
-  int spread_delta;
-  stringstream(argv[1]) >> pl_limit;
-  stringstream(argv[2]) >> spread_delta;
-
-  string str;
-  vector<string> orig_list;
-  vector<int> time_list;
-  vector<vector<int>> ask_bid_list = {{}, {}};
-  vector<int>& ask_list = ask_bid_list[0];
-  vector<int>& bid_list = ask_bid_list[1];
-  while (cin >> str) {
-    orig_list.push_back(str);
-    stringstream sstr(str);
-    string t;
-    int i;
-    getline(sstr, t, ',');
-    stringstream(t) >> i;
-    time_list.push_back(i);
-    getline(sstr, t, ',');
-    stringstream(t) >> i;
-    ask_list.push_back(i);
-    getline(sstr, t, ',');
-    stringstream(t) >> i;
-    bid_list.push_back(i);
-  }
-  for (size_t i = 0; i < orig_list.size(); ++i) {
-    cout << orig_list[i] << ",";
-    int results[2] = { -pl_limit, -pl_limit };
-
-    for (bool is_sell : {false, true}) {
-      int index = is_sell ? 1 : 0;
-      int profit_sign = is_sell ? -1 : 1;
-      int signed_spread_delta = spread_delta * -profit_sign;
-      vector<int>& order_list = is_sell ? bid_list : ask_list;
-      vector<int>& settle_list = is_sell ? ask_list : bid_list;
-      for (size_t j = i; j < orig_list.size(); ++j) {
-        int pl = (settle_list[j] + signed_spread_delta - order_list[i]) * profit_sign;
-        if (abs(pl) >= pl_limit) {
-          results[index] = pl;
-          break;
-        }
-      }
+    std::ios::sync_with_stdio(false);
+    if (argc != 4) {
+        std::cerr << "Usage: label_pl <pl_limit> <spread_delta> <decision_horizon_ms>" << std::endl;
+        return -1;
     }
-    cout <<  results[0] << ":" << results[1];
-    cout << "\n";
-  }
+    int pl_limit, spread_delta, horizon_ms;
+    stringstream(argv[1]) >> pl_limit;
+    stringstream(argv[2]) >> spread_delta;
+    stringstream(argv[3]) >> horizon_ms;
+
+    // Load entire tick list
+    vector<string> raw_rows;
+    vector<int> time_list, ask_list, bid_list;
+    string line;
+    while (cin >> line) {
+        raw_rows.push_back(line);
+        string tok; int v;
+        stringstream ss(line);
+        // time
+        getline(ss, tok, ','); stringstream(tok) >> v; time_list.push_back(v);
+        // ask
+        getline(ss, tok, ','); stringstream(tok) >> v; ask_list.push_back(v);
+        // bid
+        getline(ss, tok, ','); stringstream(tok) >> v; bid_list.push_back(v);
+    }
+    const size_t N = raw_rows.size();
+
+    for (size_t i = 0; i < N; ++i) {
+        int ask0 = ask_list[i];
+        int bid0 = bid_list[i];
+        int t0   = time_list[i];
+
+        // **** spread-adjusted entry prices ****
+        double ask_entry = ask0 + spread_delta; // BUY entry price
+        double bid_entry = bid0 - spread_delta; // SELL entry price
+
+        int buy_pl  = 0,  sell_pl  = 0;
+        int buy_ts  = -1, sell_ts  = -1;
+
+        for (size_t k = i; k < N; ++k) {
+            int tk   = time_list[k];
+            int askk = ask_list[k];
+            int bidk = bid_list[k];
+            int dt   = tk - t0;
+
+            // BUY position
+            if (buy_ts == -1) {
+                if (askk - ask_entry >= pl_limit) {
+                    buy_pl =  pl_limit; buy_ts = tk;
+                } else if (bidk - ask_entry <= -pl_limit) {
+                    buy_pl = -pl_limit; buy_ts = tk;
+                } else if (dt >= horizon_ms) {
+                    buy_pl = askk - ask_entry; buy_ts = tk;
+                }
+            }
+            // SELL position
+            if (sell_ts == -1) {
+                if (bid_entry - bidk >= pl_limit) {
+                    sell_pl =  pl_limit; sell_ts = tk;
+                } else if (askk - bid_entry >= pl_limit) {
+                    sell_pl = -pl_limit; sell_ts = tk;
+                } else if (dt >= horizon_ms) {
+                    sell_pl = bid_entry - bidk; sell_ts = tk;
+                }
+            }
+            if (buy_ts != -1 && sell_ts != -1) break;
+        }
+
+        // fallback close at last tick if never triggered
+        if (buy_ts == -1) {
+            buy_pl = ask_list.back() - ask_entry; buy_ts = time_list.back();
+        }
+        if (sell_ts == -1) {
+            sell_pl = bid_entry - bid_list.back(); sell_ts = time_list.back();
+        }
+
+        // emit row + result block
+        cout << raw_rows[i] << ','
+             << buy_pl  << ':' << buy_ts  << ':'
+             << sell_pl << ':' << sell_ts << '\n';
+    }
+    return 0;
 }
