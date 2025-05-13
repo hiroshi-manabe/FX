@@ -114,7 +114,7 @@ def main():
     env["PYTHONPATH"] = f"{Path('src').resolve()}:{env.get('PYTHONPATH', '')}"
 
     if args.prune:
-        prune_old_weeks(args.pair,args. weeks)
+        prune_old_weeks(args.pair, args.weeks)
 
     # Per‑stage execution
     for stage in seq:

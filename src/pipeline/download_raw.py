@@ -9,8 +9,7 @@ Usage:
 The script mirrors Dukascopy's folder hierarchy, month 00‑11.
 """
 
-from pathlib import Path
-import argparse, asyncio, aiohttp, datetime as dt, os, sys, pathlib, tqdm
+import argparse, asyncio, aiohttp, datetime as dt, pathlib, tqdm
 
 BASE = "https://datafeed.dukascopy.com/datafeed/{pair}/{y}/{m:02d}/{d:02d}/{h:02d}h_ticks.bi5"
 
