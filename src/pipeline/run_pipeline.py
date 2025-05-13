@@ -17,6 +17,7 @@ python src/pipeline/run_pipeline.py --start fit_quadratic --end filter_digest \
 
 from pathlib import Path
 import argparse, os, subprocess, sys
+from datetime import date, timedelta
 
 # -------------------------------------------------------------------------
 # Edit this ordered list if you add / remove stages.
@@ -43,12 +44,46 @@ STAGES = {
     "aggregate"     : ["perl",   "src/pipeline/aggregate_results.pl"],
 }
 
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------
+#  Helper: prune old week_*.csv files beyond the --weeks horizon
+# ------------------------------------------------------------------
+
+def prune_old_weeks(pair: str, keep_weeks: int):
+    cutoff = date.today() - timedelta(weeks=keep_weeks)
+    cutoff_mon = (cutoff - timedelta(days=cutoff.weekday())).isoformat()
+
+    patterns = [
+        f"data/weekly/{pair}/week_*.csv",
+        f"data/labels/*/{pair}/week_*.csv",
+        f"data/features/*/{pair}/window_*/week_*.csv",
+        f"data/digest/*/{pair}/window_*/week_*.csv",
+    ]
+    removed = 0
+    for pat in patterns:
+        for p in Path().glob(pat):
+            week = p.stem.split("_")[1]
+            if week < cutoff_mon:
+                p.unlink(missing_ok=True)
+                removed += 1
+                _prune_empty_dirs(p.parent)
+    print(f"[prune] removed {removed} obsolete files (< {cutoff_mon})")
+
+
+def _prune_empty_dirs(path: Path):
+    while path != Path("data") and path.exists():
+        try:
+            path.rmdir()
+        except OSError:
+            break  # not empty
+        path = path.parent
+
 def run(cmd, env=None):
     print(f"[RUN] {' '.join(map(str, cmd))}", flush=True)
     rc = subprocess.call(cmd, env=env)
     if rc != 0:
         sys.exit(f"★ Stage failed with exit code {rc}")
+
+# -------------------------------------------------------------------------
 
 def main():
     ap = argparse.ArgumentParser()
@@ -61,6 +96,7 @@ def main():
     ap.add_argument("--extra", nargs=argparse.REMAINDER,
                     help="additional args forwarded to every stage")
     ap.add_argument("--force", action="store_true", default=False)
+    ap.add_argument("--prune", action="store_true", default=False)
     args = ap.parse_args()
     extra = args.extra or []
 
@@ -72,10 +108,14 @@ def main():
 
     # Ensure compiled helpers are on PATH / LD_LIBRARY_PATH
     env = os.environ.copy()
-    env["PATH"]              = f"{Path('build/bin').resolve()}:{env['PATH']}"
+    env["PATH"] = f"{Path('build/bin').resolve()}:{env['PATH']}"
     env_var = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
     env[env_var] = f"{Path('build/lib').resolve()}:{env.get(env_var,'')}"
     env["PYTHONPATH"] = f"{Path('src').resolve()}:{env.get('PYTHONPATH', '')}"
+
+    if args.prune:
+        prune_old_weeks(args.pair,args. weeks)
+
     # Per‑stage execution
     for stage in seq:
         cmd = STAGES[stage] + [
