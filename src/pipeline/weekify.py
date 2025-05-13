@@ -1,4 +1,3 @@
-## src/pipeline/weekify.py
 #!/usr/bin/env python3
 """
 weekify.py – Gather seven days of hourly tick CSVs into one weekly file.
