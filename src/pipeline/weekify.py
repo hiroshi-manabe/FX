@@ -1,19 +1,39 @@
 #!/usr/bin/env python3
 """
-weekify.py – Gather seven days of hourly tick CSVs into one weekly file.
+weekify.py – merge seven days of hourly tick CSVs into one weekly file.
 
-Reads  : data/raw/dukascopy/<PAIR>/<YYYY-MM-DD>/<HH>h_ticks.csv (already .csv)
-Writes : data/weekly/<PAIR>/week_<YYYY-MM-DD>.csv
+Enhancement
+-----------
+• **NY-close awareness** – If the current moment is *after* the New-York
+  FX close (Friday 17:00 America/New_York) we treat the finishing week as
+  complete and include it in processing; otherwise we start counting
+  from the previous Monday (original behaviour).
 """
-import argparse, csv, datetime as dt, zoneinfo
+import argparse
+import csv
+import datetime as dt
+import zoneinfo
 from utils import path_utils
 
 TOKYO = zoneinfo.ZoneInfo("Asia/Tokyo")
+NY    = zoneinfo.ZoneInfo("America/New_York")
 
+
+# ---------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------
 
 def monday_date(ts: dt.datetime) -> dt.date:
+    """Return Monday (Tokyo) of the datetime's week."""
     ts = ts.astimezone(TOKYO)
     return (ts - dt.timedelta(days=ts.weekday())).date()
+
+
+def ny_week_has_closed(now_tokyo: dt.datetime) -> bool:
+    """True if NY-close (Fri 17:00 NY) for the current week has passed."""
+    ny = now_tokyo.astimezone(NY)
+    # weekday: Mon=0 … Sun=6
+    return (ny.weekday() > 4) or (ny.weekday() == 4 and ny.hour >= 17)
 
 
 def process_week(pair: str, monday: dt.date, force: bool) -> str:
@@ -22,7 +42,9 @@ def process_week(pair: str, monday: dt.date, force: bool) -> str:
         return "skip"
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    week_ms0 = int(dt.datetime.combine(monday, dt.time(0), tzinfo=TOKYO).timestamp() * 1000)
+    week_ms0 = int(
+        dt.datetime.combine(monday, dt.time(0), tzinfo=TOKYO).timestamp() * 1000
+    )
 
     with out_file.open("w", newline="") as fout:
         writer = csv.writer(fout)
@@ -43,22 +65,33 @@ def process_week(pair: str, monday: dt.date, force: bool) -> str:
     return "ok"
 
 
+# ---------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------
+
 def main(pair: str, weeks: int, force: bool):
-    today = dt.datetime.now(TOKYO).replace(hour=0, minute=0, second=0, microsecond=0)
-    this_mon = monday_date(today)
+    now_tokyo = dt.datetime.now(TOKYO)
+    include_current = ny_week_has_closed(now_tokyo)
+
+    base_monday = monday_date(now_tokyo)
+    # if week still open, start from the *previous* Monday offset by one
+    start_offset = 0 if include_current else 1
+
     stats = {"ok": 0, "skip": 0}
-    for w in range(1, weeks + 1):  # skip current (incomplete) week
-        monday = this_mon - dt.timedelta(weeks=w)
+    for w in range(start_offset, weeks + start_offset):
+        monday = base_monday - dt.timedelta(weeks=w)
         res = process_week(pair, monday, force)
         stats[res] += 1
         print(f"{res}: {monday}")
+
     print("weekify", *(f"{k}={v}" for k, v in stats.items()))
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--pair", default="USDJPY")
-    ap.add_argument("--weeks", type=int, default=8)
-    ap.add_argument("--force", action="store_true")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pair", default="USDJPY")
+    parser.add_argument("--weeks", type=int, default=8)
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args()
+
     main(args.pair.upper(), args.weeks, args.force)
