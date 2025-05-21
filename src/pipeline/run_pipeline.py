@@ -28,8 +28,7 @@ DEFAULT_ORDER = [
     "label_pl",
     "fit_quadratic",
     "filter_digest",
-    "knn_backtest",
-    "aggregate",
+    "knn_eval",
 ]
 
 # Mapping: stage name → command (list)
@@ -40,8 +39,7 @@ STAGES = {
     "label_pl"      : ["python", "src/pipeline/label_pl.py"],
     "fit_quadratic" : ["python", "src/pipeline/fit_quadratic.py"],
     "filter_digest" : ["python", "src/pipeline/filter_digest.py"],
-    "knn_backtest"  : ["perl",   "src/pipeline/knn_backtest.pl"],
-    "aggregate"     : ["perl",   "src/pipeline/aggregate_results.pl"],
+    "knn_eval"      : ["python", "src/pipeline/knn_eval.py"],
 }
 
 # ------------------------------------------------------------------
