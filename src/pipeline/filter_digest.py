@@ -31,6 +31,7 @@ A_MIN                = config.get("digest", "min_abs_a", float)
 A_MAX                = config.get("digest", "max_abs_a", float)
 B_MIN                = config.get("digest", "min_abs_b", float)
 B_MAX                = config.get("digest", "max_abs_b", float)
+C_MAX                = config.get("digest", "max_abs_c", float)
 MAX_MS_PER_TICK      = config.get("digest", "max_ms_per_tick", float)  # density gate
 
 # ------------------------------------------------------------------
@@ -47,6 +48,7 @@ def row_passes(r2: float, a: float, b: float) -> bool:
         r2 >= R2_THR
         and A_MIN <= abs(a) <= A_MAX
         and B_MIN <= abs(b) <= B_MAX
+        and abs(c) <= C_MAX
     )
 
 
@@ -60,7 +62,6 @@ def process(pair: str, monday: str, window: int, force: bool) -> str:
         return "skip"
 
     kept_rows: list[str] = []
-    last_exit_ms = -1  # spacing rule
     recent_ticks: collections.deque[int] = collections.deque()
 
     with src.open() as fin:
@@ -107,13 +108,8 @@ def process(pair: str, monday: str, window: int, force: bool) -> str:
                 continue
             exit_ts = max(buy_exit, sell_exit)
 
-            # spacing rule: no overlap with previous kept trade
-            if last_exit_ms >= 0 and t_ms < last_exit_ms:
-                continue
-
             # keep row
             kept_rows.append(raw.rstrip())
-            last_exit_ms = exit_ts
 
     if kept_rows:
         dst.parent.mkdir(parents=True, exist_ok=True)
