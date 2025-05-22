@@ -43,7 +43,7 @@ def weekly_dates(pair: str, window: int, limit: int | None):
     return [p.stem.split("_")[1] for p in feats]
 
 
-def row_passes(r2: float, a: float, b: float) -> bool:
+def row_passes(r2: float, a: float, b: float, c:float) -> bool:
     return (
         r2 >= R2_THR
         and A_MIN <= abs(a) <= A_MAX
@@ -91,22 +91,12 @@ def process(pair: str, monday: str, window: int, force: bool) -> str:
             try:
                 a = float(coeff_parts[1])
                 b = float(coeff_parts[2])
+                c = float(coeff_parts[3])
                 r2 = float(coeff_parts[4])
             except ValueError:
                 continue
-            if not row_passes(r2, a, b):
+            if not row_passes(r2, a, b, c):
                 continue
-
-            # ---- parse buy/sell block ----
-            future_parts = row[5].split(":")
-            if len(future_parts) < 4:
-                continue
-            try:
-                buy_exit = int(future_parts[1])  # index 1 is buyExitTs
-                sell_exit = int(future_parts[3]) # index 3 is sellExitTs
-            except ValueError:
-                continue
-            exit_ts = max(buy_exit, sell_exit)
 
             # keep row
             kept_rows.append(raw.rstrip())
