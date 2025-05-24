@@ -1,202 +1,160 @@
+// fit_quadratic.cpp  –  Append quadratic-fit coefficients (a,b,c,R²)
+// to each row of a weekly tick CSV.
+//
+// Input  (stdin): CSV rows beginning with
+//      0 : time_ms  (milliseconds since week-start)
+//      1 : ask_pip  (integer pips, e.g. 142.056 ⇒ 142056)
+//      2 : bid_pip  (…)        — remaining fields untouched.
+//
+// For every <window_ms> supplied on the command line we perform an
+// incremental least-squares fit  y = a·x² + b·x + c
+// where  x  = (time_ms − cur_time_ms)
+//        y  = (ask_pip − cur_ask_pip)        (no 100 000 scaling)
+// and append
+//     ,<window>:<a>:<b>:<c>:<R2>
+// Multiple windows are separated by '/'.
+//
+// Compile with C++17:
+//     g++ -O3 -std=c++17 fit_quadratic.cpp -o fit_quadratic
+//--------------------------------------------------------------------
+#include <algorithm>
 #include <cmath>
-#include <cstdio>
 #include <iostream>
-#include <istream>
 #include <sstream>
 #include <string>
 #include <vector>
 
-using std::abs;
-using std::cerr;
-using std::cin;
-using std::cout;
-using std::dec;
 using std::getline;
-using std::hex;
 using std::size_t;
 using std::string;
-using std::stringstream;
 using std::vector;
 
-bool fitIt( 
-  const double* X,
-  const double* Y,
-  const int &order,
-  vector<double> &coeffs)
+struct TickRow {
+    long   time_ms;
+    long   ask_pip;
+    string raw;
+};
+
+struct QuadFit { double a{}, b{}, c{}, r2{}; };
+
+// Solve normal equations for quadratic fit
+static QuadFit fit_quadratic(const vector<TickRow>& buf)
 {
-  int n = order;
-  int np1 = n + 1;
-  int np2 = n + 2;
-  double tmp;
-
-  // a = vector to store final coefficients.
-  vector<double> a(np1);
-
-  // B = normal augmented matrix that stores the equations.
-  vector<vector<double> > B(np1, vector<double> (np2, 0));
-
-  for (int i = 0; i <= n; ++i) {
-    for (int j = 0; j <= n; ++j) {
-      B[i][j] = X[i + j];
+    const size_t n = buf.size();
+    if (n < 3) {
+        return {};
     }
-  }
 
-  // Load values of Y as last column of B
-  for (int i = 0; i <= n; ++i) {
-    B[i][np1] = Y[i];
-  }
+    const long  cur_t   = buf.back().time_ms;
+    const long  cur_pip = buf.back().ask_pip;
 
-  n += 1;
-  int nm1 = n-1;
+    double Sx=0, Sx2=0, Sx3=0, Sx4=0;
+    double Sy=0, Sxy=0, Sx2y=0;
 
-  // Pivotisation of the B matrix.
-  for (int i = 0; i < n; ++i) {
-    for (int k = i+1; k < n; ++k) {
-      if (B[i][i] < B[k][i]) {
-        for (int j = 0; j <= n; ++j) {
-          tmp = B[i][j];
-          B[i][j] = B[k][j];
-          B[k][j] = tmp;
-        }
-      }
+    for (const auto& t : buf) {
+        double x = static_cast<double>(t.time_ms - cur_t);     // ms offset
+        double y = static_cast<double>(t.ask_pip - cur_pip);   // pip delta
+        double x2 = x*x;
+        Sx   += x;
+        Sx2  += x2;
+        Sx3  += x2 * x;
+        Sx4  += x2 * x2;
+        Sy   += y;
+        Sxy  += x * y;
+        Sx2y += x2 * y;
     }
-  }
+    const double N = static_cast<double>(n);
+    double D =   N*(Sx2*Sx4 - Sx3*Sx3)
+               - Sx*(Sx*Sx4 - Sx2*Sx3)
+               + Sx2*(Sx*Sx3 - Sx2*Sx2);
+    if (std::fabs(D) < 1e-12) return {};
 
-  // Performs the Gaussian elimination.
-  // (1) Make all elements below the pivot equals to zero
-  //     or eliminate the variable.
-  for (int i=0; i<nm1; ++i) {
-    for (int k =i+1; k<n; ++k) {
-      double t = B[k][i] / B[i][i];
-      for (int j=0; j<=n; ++j) {
-        B[k][j] -= t*B[i][j];         // (1)
-      }
+    double Da =   N*(Sx2*Sx2y - Sx3*Sxy)
+                - Sx*(Sx*Sx2y - Sx2*Sxy)
+                + Sy*(Sx*Sx3 - Sx2*Sx2);
+    double Db =   N*(Sxy*Sx4 - Sx3*Sx2y)
+                - Sy*(Sx*Sx4 - Sx2*Sx3)
+                + Sx2*(Sx*Sx2y - Sx2*Sxy);
+    double Dc =   Sy*(Sx2*Sx4 - Sx3*Sx3)
+                - Sx*(Sxy*Sx4 - Sx3*Sx2y)
+                + Sx2*(Sxy*Sx3 - Sx2*Sx2y);
+
+    QuadFit q;
+    q.a = Da / D;
+    q.b = Db / D;
+    q.c = Dc / D;
+
+    // R²
+    double mean = Sy / N;
+    double ss_tot = 0.0, ss_res = 0.0;
+    for (const auto& t : buf) {
+        double x = static_cast<double>(t.time_ms - cur_t);
+        double y = static_cast<double>(t.ask_pip - cur_pip);
+        double y_pred = q.a*x*x + q.b*x + q.c;
+        ss_res += (y - y_pred)*(y - y_pred);
+        ss_tot += (y - mean)  * (y - mean);
     }
-  }
-
-  // Back substitution.
-  // (1) Set the variable as the rhs of last equation
-  // (2) Subtract all lhs values except the target coefficient.
-  // (3) Divide rhs by coefficient of variable being calculated.
-  for (int i=nm1; i >= 0; --i) {
-    a[i] = B[i][n];                   // (1)
-    for (int j = 0; j<n; ++j) {
-      if (j != i) {
-        a[i] -= B[i][j] * a[j];       // (2)
-      }
-    }
-    a[i] /= B[i][i];                  // (3)
-  }
-
-  coeffs.resize(a.size());
-  for (size_t i = 0; i < a.size(); ++i) {
-    coeffs[i] = a[i];
-  }
-
-  return true;
+    q.r2 = (ss_tot < 1e-12) ? 0.0 : 1.0 - ss_res / ss_tot;
+    return q;
 }
+//--------------------------------------------------------------------
+int main(int argc, char* argv[])
+{
+    std::ios::sync_with_stdio(false);
 
-double quadratic(double x, double a, double b, double c) {
-  return a * x * x + b * x + c;
-}
-
-int main(int argc, char *argv[]) {
-  std::ios::sync_with_stdio(false);
-
-  if (argc < 2) {
-    cerr << "Usage: add_past_data <time_width> ...\n";
-    exit(-1);
-  }
-
-  int time_widths[100] = {0};
-  int n = argc - 1;
-  for (int i = 0; i < n; ++i) {
-    stringstream(argv[1 + i]) >> time_widths[i];
-  }
-  
-  string str;
-  vector<string> orig_list;
-  vector<int> time_list;
-  vector<int> price_list;
-  while (cin >> str) {
-    orig_list.push_back(str);
-    stringstream sstr(str);
-    string t;
-    int i;
-    getline(sstr, t, ',');
-    stringstream(t) >> i;
-    time_list.push_back(i);
-    getline(sstr, t, ',');
-    stringstream(t) >> i;
-    price_list.push_back(i);
-  }
-
-  int price_to_normalize = 100000;
-  
-  for (size_t i = 0; i < orig_list.size(); ++i) {
-    int cur_time = time_list[i];
-    int cur_price = price_list[i];
-    double rate = (double)cur_price / price_to_normalize;
-
-    cout << orig_list[i] << ",";
-    stringstream ss_coeff;
-    for (int j = 0; j < n; ++j) {
-      ss_coeff << time_widths[j] << ":";
-      if (cur_time >= time_widths[j] - 1) {
-        int start_time = cur_time - time_widths[j] + 1;
-
-        double X[5] = {0};
-        double Y[3] = {0};
-        for (int k = i; time_list[k] >= start_time && k >= 0; --k) {
-          double x = (double)time_list[k] - cur_time;
-          double y = (double)price_list[k] / rate - price_to_normalize;
-          X[0] += 1;
-          X[1] += x;
-          double t = x * x;
-          X[2] += t;
-          t *= x;
-          X[3] += t;
-          t *= x;
-          X[4] += t;
-          t = y;
-          Y[0] += t;
-          t *= x;
-          Y[1] += t;
-          t *= x;
-          Y[2] += t;
-        }
-        vector<double> coeffs;
-        fitIt(X, Y, 2, coeffs);
-        double y_mean = Y[0] / X[0];
-        double ss_res = 0.0;
-        double ss_tot = 0.0;
-        
-        for (int k = i; time_list[k] >= start_time && k >= 0; --k) {
-          int time = time_list[k];
-          double price = (double)price_list[k] / rate;
-          double x = (double)time - cur_time;
-          double y = (double)price - price_to_normalize;
-          double y_pred = quadratic(x, coeffs[2], coeffs[1], coeffs[0]);
-          double t = y - y_pred;
-          ss_res += t * t;
-          t = y - y_mean;
-          ss_tot += t * t;
-        }
-        double r_squared = 1 - (ss_res / ss_tot);
-        ss_coeff.precision(17);
-        for (const auto &t : coeffs) {
-          ss_coeff << t;
-          ss_coeff << ":";
-        }
-        ss_coeff << r_squared;
-      }
-      else {
-        ss_coeff << "0.0:0.0:0.0:0.0";
-      }
-      if (j < n - 1) {
-        ss_coeff << "/";
-      }
+    if (argc < 2) {
+        std::cerr << "Usage: fit_quadratic <time_window_ms> ...\n";
+        return 1;
     }
-    cout << ss_coeff.str() << "\n";
-  }
+    vector<long> windows;
+    for (int i = 1; i < argc; ++i) {
+        long w = 0; std::stringstream(argv[i]) >> w;
+        if (w > 0) {
+            windows.push_back(w);
+        }
+    }
+    if (windows.empty()) {
+        std::cerr << "No valid windows provided.\n";
+        return 1;
+    }
+
+    struct WinBuf { long span_ms; vector<TickRow> buf; };
+    vector<WinBuf> winbufs;
+    for (long w : windows) {
+        winbufs.push_back({w, {}});
+    }
+
+    string line;
+    while (getline(std::cin, line)) {
+        if (line.empty()) {
+            continue;
+        }
+        std::stringstream ss(line);
+        string field;
+        getline(ss, field, ',');
+        long t_ms = std::stol(field);
+        getline(ss, field, ',');
+        long ask_pip = std::stol(field);
+
+        TickRow row{t_ms, ask_pip, line};
+
+        std::ostringstream out;
+        out << line;
+
+        for (auto& wb : winbufs) {
+            wb.buf.push_back(row);
+            while (!wb.buf.empty() &&
+                   (t_ms - wb.buf.front().time_ms) > wb.span_ms) {
+                wb.buf.erase(wb.buf.begin());
+            }
+
+            QuadFit q = { 0 };
+            if (t_ms >= wb.span_ms) {
+                q = fit_quadratic(wb.buf);
+            }
+            out << ',' << wb.span_ms << ':' << q.a << ':' << q.b << ':' << q.c << ':' << q.r2;
+        }
+        std::cout << out.str() << '\n';
+    }
+    return 0;
 }
