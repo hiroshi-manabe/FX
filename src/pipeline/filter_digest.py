@@ -5,7 +5,7 @@ filter_digest.py – apply quality + density filters and enforce
 "one‑trade‑at‑a‑time" spacing.
 
 Reads  : data/features/<ALG_TAG>/<PAIR>/window_<W>/week_<YYYY-MM-DD>.csv
-Writes : data/digest/<ALG_TAG>/<PAIR>/window_<W>/week_<YYYY-MM-DD>.csv
+Writes : data/digest/<PAIR>/window_<W>/week_<YYYY-MM-DD>.csv
 
 Filtering steps per row:
 1.  R² ≥ r2_threshold and |a|,|b| within bounds.
@@ -53,11 +53,11 @@ def row_passes(r2: float, a: float, b: float, c:float) -> bool:
 
 
 def process(pair: str, monday: str, window: int, force: bool) -> str:
-    src = path_utils.features_file(pair, monday, window, ALG_TAG)
+    src = path_utils.features_file(pair, monday, window)
     if not src.exists():
         return "skip"
 
-    dst = path_utils.digest_file(pair, monday, window, ALG_TAG)
+    dst = path_utils.digest_file(pair, monday, window)
     if dst.exists() and not force:
         return "skip"
 
