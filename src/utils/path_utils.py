@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 Canonical path helpers for the FX pipeline.
 Change ONE place – everything else follows.
@@ -51,6 +49,12 @@ def digest_dir(pair: str, window: int, alg: str | None = None) -> Path:
 
 def digest_file(pair: str, monday: str, window: int, alg: str | None = None) -> Path:
     return digest_dir(pair, window, alg) / f"week_{monday}.csv"
+
+def grid_file(pair: str, monday_date: str, window: int) -> Path:
+    return DATA_ROOT / "knn" / "grids" / pair / f"window_{window}" / f"week_{monday}.npy"
+
+def trades_file(pair:str, monday_date: str, window: int) -> Path:
+    return DATA_ROOT / "knn" / "trades" / pair / f"window_{window}" / f"week_{monday}.csv"
 
 def quadratic_tag() -> str:
     return config.get("pipeline", "quadratic_alg_tag")

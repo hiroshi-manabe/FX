@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
 import configparser, pathlib
 
-_cfg = configparser.ConfigParser()
+_cfg = configparser.ConfigParser(inline_comment_prefixes=(";",))
 _cfg.read(pathlib.Path(__file__).parents[2] / "conf" / "config.ini")
 
 def _cast(value: str, typ):

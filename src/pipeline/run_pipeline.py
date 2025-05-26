@@ -28,7 +28,7 @@ DEFAULT_ORDER = [
     "label_pl",
     "fit_quadratic",
     "filter_digest",
-    "knn_eval",
+    "knn_gridsearch",
 ]
 
 # Mapping: stage name → command (list)
@@ -39,7 +39,7 @@ STAGES = {
     "label_pl"      : ["python", "src/pipeline/label_pl.py"],
     "fit_quadratic" : ["python", "src/pipeline/fit_quadratic.py"],
     "filter_digest" : ["python", "src/pipeline/filter_digest.py"],
-    "knn_eval"      : ["python", "src/pipeline/knn_eval.py"],
+    "knn_gridsearch": ["python", "src/pipeline/knn_gridsearch.py"],
 }
 
 # ------------------------------------------------------------------
