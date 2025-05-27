@@ -4,6 +4,7 @@
 
 from sklearn.neighbors import KDTree
 import numpy as np
+import pandas as pd
 
 class KNNModel:
     """KD‑tree on (a,b) with helper to return buy/sell tallies."""

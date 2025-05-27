@@ -53,9 +53,7 @@ def grid_dir(pair: str, monday_date: str, window: int) -> Path:
     return DATA_ROOT / "knn" / "grids" / pair / f"window_{window}"
 
 def grid_file(pair: str, monday_date: str, window: int) -> Path:
-    return gdir_dir(pair, monday_date, window) / f"week_{monday}.npy"
-
-    return DATA_ROOT / "knn" / "trades" / pair / f"window_{window}" / f"week_{monday}.csv"
+    return grid_dir(pair, monday_date, window) / f"week_{monday_date}.npy"
 
 def quadratic_tag() -> str:
     return config.get("pipeline", "quadratic_alg_tag")
