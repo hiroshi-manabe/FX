@@ -33,14 +33,16 @@ from knn.model import KNNModel  # KD‑tree wrapper lives there for now
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-WINDOWS       = config.getlist("pipeline", "windows", int)
-DEV_WEEKS     = config.get("knn", "dev_weeks", int)
-TRAIN_WEEKS   = config.get("knn", "train_weeks", int)
-K             = config.get("knn", "k", int)
-SPACING_MS    = config.get("knn", "spacing_buffer", int)
-NS            = config.getlist("knn", "Ns", int)
-THETAS        = config.getlist("knn", "thetas", int)
-MIN_TRADES    = config.get("knn", "min_trades_dev", int)
+WINDOWS          = config.getlist("pipeline", "windows", int)
+DEV_WEEKS        = config.get("knn", "dev_weeks", int)
+TRAIN_WEEKS      = config.get("knn", "train_weeks", int)
+K                = config.get("knn", "k", int)
+SPACING_MS       = config.get("knn", "spacing_buffer", int)
+NS_WEEK          = config.getlist("knn", "Ns_week", int)
+USE_WEEK_SCALING = config.get('knn', 'use_week_scaling', bool)
+THETAS           = config.getlist("knn", "thetas", int)
+MIN_TRADES       = config.get("knn", "min_trades_dev", int)
+
 
 # ---------------------------------------------------------------------------
 
@@ -68,16 +70,20 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
     if df.empty:
         raise RuntimeError(f"No digest rows for {pair} {monday} window {window}")
 
-    grids = {side: np.zeros((len(NS), len(THETAS), 4), dtype=float)
+    grids = {side: np.zeros((len(NS_WEEK), len(THETAS), 4), dtype=float)
              for side in ("buy", "sell")}
 
     for side in ("buy", "sell"):
-        exit_col = f"{side}Exit"
         pl_col   = f"{side}PL"
 
-        for iN, N in enumerate(NS):
+        for iN, N_week in enumerate(NS_WEEK):
+            if USE_WEEK_SCALING:
+                N_target = N_week * TRAIN_WEEKS
+            else:
+                N_target = N_week
+
             try:
-                tau, kept_idx = binary_search_r2(df, N, SPACING_MS, side)
+                tau, kept_idx = binary_search_r2(df, N_target, SPACING_MS, side)
             except ValueError:
                 continue  # could not reach N rows
             df_side = df.loc[kept_idx]

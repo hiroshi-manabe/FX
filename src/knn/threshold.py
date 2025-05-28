@@ -12,7 +12,6 @@ def _count_with_tau(df: pd.DataFrame, tau: float, N_target: int,
     side = 'buy' or 'sell'."""
     last_exit = -1_000_000_000
     kept = 0
-    pl_col   = f"{side}PL"
     exit_col = f"{side}Exit"
 
     for row in df.itertuples(index=False):
@@ -36,15 +35,15 @@ def binary_search_r2(df: pd.DataFrame, N_target: int, spacing_ms: int,
     """
     # Quick bounds
     tau_lo, tau_hi = 0.0, 1.0
-    if _count_with_tau(df, tau_hi, N_target, spacing_ms, side) < N_target:
+    if _count_with_tau(df, tau_lo, N_target, spacing_ms, side) < N_target:
         return 0.0, _count_with_tau(df, 0.0, N_target, spacing_ms, side)
 
     while tau_hi - tau_lo > tol:
         mid = (tau_lo + tau_hi) / 2.0
         kept = _count_with_tau(df, mid, N_target, spacing_ms, side)
         if kept >= N_target:
-            tau_hi = mid
-        else:
             tau_lo = mid
+        else:
+            tau_hi = mid
     kept_final = _count_with_tau(df, tau_hi, N_target, spacing_ms, side)
     return tau_hi, kept_final
