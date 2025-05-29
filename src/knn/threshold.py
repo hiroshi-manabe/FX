@@ -6,44 +6,67 @@ from __future__ import annotations
 
 import pandas as pd
 
-def _count_with_tau(df: pd.DataFrame, tau: float, N_target: int,
-                    spacing_ms: int, side: str) -> int:
-    """Return number of kept rows using the given τ and spacing.
-    side = 'buy' or 'sell'."""
-    last_exit = -1_000_000_000
-    kept = 0
+###############################################################################
+# R² threshold search with side-specific spacing
+###############################################################################
+def binary_search_r2(
+    df: pd.DataFrame,
+    N_target: int,
+    spacing_ms: int,
+    side: str,
+    *,
+    iters: int = 25,
+) -> tuple[float, list[int]]:
+    """
+    Return (tau, kept_idx) where tau is the *largest* R² threshold such
+    that spacing-filtered rows ≥ N_target, and kept_idx is the list of
+    row indices that satisfy that tau (for this *side*).
+
+    `side` ∈ {"buy", "sell"} determines which exit column to use.
+    """
     exit_col = f"{side}Exit"
 
-    for row in df.itertuples(index=False):
-        if row.r2 < tau:
-            continue
-        if row.time_ms < last_exit + spacing_ms:
-            continue
-        kept += 1
-        last_exit = getattr(row, exit_col)
-        if kept >= N_target:
-            break
-    return kept
+    def count_with_tau(tau: float) -> int:
+        last_exit = -1_000_000_000  # far past
+        kept = 0
+        for r in df.itertuples():
+            if r.r2 < tau:
+                continue
+            if r.time_ms >= last_exit + spacing_ms:
+                kept += 1
+                last_exit = getattr(r, exit_col)
+                if kept >= N_target:          # early-exit
+                    break
+        return kept
 
+    # ---------- 1. establish bounds -----------------------------------------
+    tau_lo = 0.0
+    tau_hi = float(df.r2.max())
 
-def binary_search_r2(df: pd.DataFrame, N_target: int, spacing_ms: int,
-                     side: str, tol: float = 1e-4) -> Tuple[float, int]:
-    """Find minimal τ so that *at least* N_target rows survive spacing.
+    if count_with_tau(tau_lo) < N_target:
+        # impossible: even tau=0 keeps too few rows
+        return 0.0, []
 
-    Returns (tau, kept_rows).
-    If not reachable, returns (0.0, kept_rows) where kept_rows < N_target.
-    """
-    # Quick bounds
-    tau_lo, tau_hi = 0.0, 1.0
-    if _count_with_tau(df, tau_lo, N_target, spacing_ms, side) < N_target:
-        return 0.0, _count_with_tau(df, 0.0, N_target, spacing_ms, side)
-
-    while tau_hi - tau_lo > tol:
-        mid = (tau_lo + tau_hi) / 2.0
-        kept = _count_with_tau(df, mid, N_target, spacing_ms, side)
-        if kept >= N_target:
-            tau_lo = mid
+    # ---------- 2. binary search (counts only) ------------------------------
+    for _ in range(iters):
+        tau_mid = 0.5 * (tau_lo + tau_hi)
+        if count_with_tau(tau_mid) >= N_target:
+            tau_lo = tau_mid          # still enough rows → tighten
         else:
-            tau_hi = mid
-    kept_final = _count_with_tau(df, tau_hi, N_target, spacing_ms, side)
-    return tau_hi, kept_final
+            tau_hi = tau_mid          # too strict → loosen
+
+    tau_star = tau_lo
+
+    # ---------- 3. final pass to collect indices ----------------------------
+    kept_idx: list[int] = []
+    last_exit = -1_000_000_000
+    for i, r in enumerate(df.itertuples()):
+        if r.r2 < tau_star:
+            continue
+        if r.time_ms >= last_exit + spacing_ms:
+            kept_idx.append(i)
+            last_exit = getattr(r, exit_col)
+            if len(kept_idx) == N_target:
+                break
+
+    return tau_star, kept_idx
