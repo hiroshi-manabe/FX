@@ -61,42 +61,103 @@ def concat_train_dev(pair: str, mondays: list[str], window: int) -> pd.DataFrame
 
 
 def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
-    """Return grids per side for one DEV Monday/window."""
-    # TRAIN_DEV Mondays: [monday-TRAIN_WEEKS .. monday-1]
+    """Grid‑search on one DEV Monday / window.
+
+    * tau is tuned **only on TRAIN rows** (length TRAIN_WEEKS).
+    * Κ‑D tree is built from those TRAIN rows that survivetau + spacing.
+    * DEV rows (DEV_WEEKS) are evaluated with that tree.
+    """
     monday_dt = dt.date.fromisoformat(monday)
-    train_mondays = [ (monday_dt - dt.timedelta(weeks=w)).isoformat()
-                      for w in range(TRAIN_WEEKS, 0, -1) ]
-    df = concat_train_dev(pair, train_mondays, window)
-    if df.empty:
-        raise RuntimeError(f"No digest rows for {pair} {monday} window {window}")
 
-    grids = {side: np.zeros((len(NS_WEEK), len(THETAS), 4), dtype=float)
-             for side in ("buy", "sell")}
+    # --- TRAIN & DEV Monday lists ----------------------------------------
+    train_mondays = [
+        (monday_dt - dt.timedelta(weeks=w)).isoformat()
+        for w in range(TRAIN_WEEKS, 0, -1)
+    ]
+    dev_mondays = [
+        (monday_dt - dt.timedelta(weeks=w)).isoformat()
+        for w in range(DEV_WEEKS, 0, -1)
+    ]
 
+    # --------------------------------------------------------------------
+    # 1. Load data
+    # --------------------------------------------------------------------
+    df_train = concat_train_dev(pair, train_mondays, window)
+    if df_train.empty:
+        raise RuntimeError("no TRAIN rows")
+
+    df_dev = concat_train_dev(pair, dev_mondays, window)
+    if df_dev.empty:
+        raise RuntimeError("no DEV rows")
+
+    # --------------------------------------------------------------------
+    # 2. Feature scaling on TRAIN statistics only
+    # --------------------------------------------------------------------
+    mu_a, sigma_a = df_train["a"].mean(), df_train["a"].std(ddof=0) or 1.0
+    mu_b, sigma_b = df_train["b"].mean(), df_train["b"].std(ddof=0) or 1.0
+
+    def _scale(df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        out["a"] = (out["a"] - mu_a) / sigma_a
+        out["b"] = (out["b"] - mu_b) / sigma_b
+        return out
+
+    df_train = _scale(df_train)
+    df_dev   = _scale(df_dev)
+
+    # --------------------------------------------------------------------
+    # 3. Grid containers
+    # --------------------------------------------------------------------
+    grids = {
+        side: np.zeros((len(NS_WEEK), len(THETAS), 4), dtype=float)
+        for side in ("buy", "sell")
+    }
+
+    # --------------------------------------------------------------------
+    # 4. Per‑side processing
+    # --------------------------------------------------------------------
     for side in ("buy", "sell"):
+        exit_col = f"{side}Exit"
         pl_col   = f"{side}PL"
 
+        # -------- iterate N targets --------------------------------------
         for iN, N_week in enumerate(NS_WEEK):
             if USE_WEEK_SCALING:
                 N_target = N_week * TRAIN_WEEKS
             else:
                 N_target = N_week
 
+            # tau search on TRAIN only
             try:
-                tau, kept_idx = binary_search_r2(df, N_target, SPACING_MS, side)
+                tau, kept_idx = binary_search_r2(
+                    df_train, N_target, SPACING_MS, side
+                )
             except ValueError:
-                continue  # could not reach N rows
-            df_side = df.loc[kept_idx]
-            if df_side.empty:
+                continue            # cannot hit N_target
+            if not kept_idx:
+                continue
+
+            df_kept = df_train.iloc[kept_idx]
+            if df_kept.empty:
                 continue
 
             model = KNNModel(k=K)
-            model.fit(df_side)
+            model.fit(df_kept)
 
+            # -------- iterate theta values -------------------------------
             for jT, theta in enumerate(THETAS):
-                wins = losses = 0
-                pl_vals = []
-                for r in df_side.itertuples(index=False):
+                trades = wins = losses = 0
+                pls: list[float] = []
+
+                last_exit = -1_000_000_000  # enforce spacing on DEV too
+                for r in df_dev.itertuples(index=False):
+                    #  skip low-quality fits
+                    if r.r2 < tau:
+                        continue
+                    # simple spacing guard between DEV trades
+                    if r.time_ms < last_exit + SPACING_MS:
+                        continue
+
                     sc = model.scores((r.a, r.b))
                     w, l, _ = sc[side]
                     if (w - l) >= theta:
@@ -105,13 +166,14 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                             wins += 1
                         elif pl < 0:
                             losses += 1
-                        pl_vals.append(pl)
+                        trades += 1
+                        pls.append(pl)
+                        last_exit = getattr(r, exit_col)
 
-                trades = wins + losses
                 if trades < MIN_TRADES:
                     continue
-                mean = float(np.mean(pl_vals)) if pl_vals else 0.0
-                std  = float(np.std(pl_vals))  if trades >= 2 else 0.0
+                mean = float(np.mean(pls))
+                std  = float(np.std(pls, ddof=0))
                 tstat = 0.0 if std == 0 else mean / (std / math.sqrt(trades))
                 grids[side][iN, jT] = (trades, mean, std, tstat)
 
