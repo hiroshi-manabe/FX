@@ -49,11 +49,17 @@ def digest_dir(pair: str, window: int) -> Path:
 def digest_file(pair: str, monday_date: str, window: int) -> Path:
     return digest_dir(pair, window) / f"week_{monday_date}.csv"
 
-def grid_dir(pair: str, monday_date: str, window: int) -> Path:
+def grid_dir(pair: str, window: int) -> Path:
     return DATA_ROOT / "knn" / "grids" / pair / f"window_{window}"
 
 def grid_file(pair: str, monday_date: str, window: int) -> Path:
-    return grid_dir(pair, monday_date, window) / f"week_{monday_date}.npy"
+    return grid_dir(pair, window) / f"week_{monday_date}.npy"
+
+def vis_dir(pair: str, monday_date: str, window: int) -> Path:
+    return DATA_ROOT / "knn" / "viz" / pair / f"window_{window}" / f"week_{monday_date}"
+
+def vis_file(pair: str, monday_date: str, window: int, side: str, N: int, theta: float) -> Path:
+    return vis_dir(pair, monday_date, window) / f"{side}_N{N}_theta{theta}.parquet"
 
 def quadratic_tag() -> str:
     return config.get("pipeline", "quadratic_alg_tag")

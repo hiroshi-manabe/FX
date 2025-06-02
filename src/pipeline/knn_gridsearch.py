@@ -108,8 +108,9 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
     # --------------------------------------------------------------------
     # 3. Grid containers
     # --------------------------------------------------------------------
+    METRICS = ("trades", "mean", "std", "tstat", "tau")
     grids = {
-        side: np.zeros((len(NS_WEEK), len(THETAS), 4), dtype=float)
+        side: np.zeros((len(NS_WEEK), len(THETAS), len(METRICS)), dtype=float)
         for side in ("buy", "sell")
     }
 
@@ -145,11 +146,19 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
             model.fit(df_kept)
 
             # -------- iterate theta values -------------------------------
-            for jT, theta in enumerate(THETAS):
-                trades = wins = losses = 0
-                pls: list[float] = []
+            # For visualization: rows that passed tau+spacing (TRAIN)
+            df_train_vis = (
+                df_kept[["time_ms", "a", "b", "r2", pl_col]]
+                .rename(columns={pl_col: "pl"})
+                .assign(set="TRAIN", tau=tau)
+            )
 
+            for jT, theta in enumerate(THETAS):
+                trades = 0
+                pls: list[float] = []
+                dev_rows = []
                 last_exit = -1_000_000_000  # enforce spacing on DEV too
+
                 for r in df_dev.itertuples(index=False):
                     #  skip low-quality fits
                     if r.r2 < tau:
@@ -162,10 +171,16 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                     w, l, _ = sc[side]
                     if (w - l) >= theta:
                         pl = getattr(r, pl_col)
-                        if pl > 0:
-                            wins += 1
-                        elif pl < 0:
-                            losses += 1
+                        # for visualisation
+                        dev_rows.append({
+                            "time_ms": r.time_ms,
+                            "a": r.a,
+                            "b": r.b,
+                            "r2": r.r2,
+                            "pl": pl,
+                            "set": "DEV",
+                            "tau": tau,
+                        })
                         trades += 1
                         pls.append(pl)
                         last_exit = getattr(r, exit_col)
@@ -175,7 +190,15 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 mean = float(np.mean(pls))
                 std  = float(np.std(pls, ddof=0))
                 tstat = 0.0 if std == 0 else mean / (std / math.sqrt(trades))
-                grids[side][iN, jT] = (trades, mean, std, tstat)
+                grids[side][iN, jT] = (trades, mean, std, tstat, tau)
+                # Save visualization rows
+                df_dev_vis = pd.DataFrame(dev_rows)
+                df_vis = pd.concat([df_train_vis, df_dev_vis], ignore_index=True)
+
+                vis_dir = path_utils.vis_dir(pair, monday, window)
+                vis_dir.mkdir(parents=True, exist_ok=True)
+                vis_file = path_utils.vis_file(pair, monday, window, side, N_target, theta)
+                df_vis.to_parquet(vis_file, compression="zstd")
 
     return grids
 
