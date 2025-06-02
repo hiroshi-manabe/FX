@@ -9,6 +9,6 @@ DATA_ZIP="fx_data.zip"
 git archive --format=zip --output="$CODE_ZIP" --prefix=fx/ HEAD
 
 # Data
-zip -r "$DATA_ZIP" data/
+#zip -r "$DATA_ZIP" data/
 
 echo "Created $CODE_ZIP and $DATA_ZIP"
