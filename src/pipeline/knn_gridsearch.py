@@ -34,8 +34,9 @@ from knn.model import KNNModel  # KD‑tree wrapper lives there for now
 # Config
 # ---------------------------------------------------------------------------
 WINDOWS          = config.getlist("pipeline", "windows", int)
-DEV_WEEKS        = config.get("knn", "dev_weeks", int)
 TRAIN_WEEKS      = config.get("knn", "train_weeks", int)
+DEV_WEEKS        = config.get("knn", "dev_weeks", int)
+TEST_WEEKS       = config.get("knn", "test_weeks", int)
 K                = config.get("knn", "k", int)
 SPACING_MS       = config.get("knn", "spacing_buffer", int)
 NS_WEEK          = config.getlist("knn", "Ns_week", int)
@@ -214,13 +215,19 @@ def main(argv: list[str] | None = None):
 
     pair = args.pair.upper()
 
+    # Build a list of Mondays *including* the most-recent one (w=0).
     last_mon = last_completed_monday_utc().date()
-    mondays = [ (last_mon - dt.timedelta(weeks=w)).isoformat()
-                for w in range(1, args.weeks + 1) ]
+    mondays = [(last_mon - dt.timedelta(weeks=w)).isoformat()
+               for w in range(0, args.weeks)]
 
-    dev_mondays = mondays[-DEV_WEEKS:]
+    # We need grids for every Monday that will act as either a DEV anchor
+    # or the TRAIN slice for a future TEST.  That is:
+    #     DEV_WEEKS (for parameter picking)  +
+    #     TEST_WEEKS (latest TEST span)
+    GRID_WEEKS = DEV_WEEKS + TEST_WEEKS
+    grid_mondays = mondays[:GRID_WEEKS]          # newest → oldest slice
 
-    for mon in dev_mondays:
+    for mon in grid_mondays:
         for window in WINDOWS:
             out = path_utils.grid_file(pair, mon, window)
             if out.exists() and not args.force:
