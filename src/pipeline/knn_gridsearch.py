@@ -158,6 +158,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 trades = 0
                 pls: list[float] = []
                 dev_rows = []
+                trade_rows = []
                 last_exit = -1_000_000_000  # enforce spacing on DEV too
 
                 for r in df_dev.itertuples(index=False):
@@ -172,7 +173,6 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                     w, l, _ = sc[side]
                     if (w - l) >= theta:
                         pl = getattr(r, pl_col)
-                        # for visualisation
                         dev_rows.append({
                             "time_ms": r.time_ms,
                             "a": r.a,
@@ -181,6 +181,17 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                             "pl": pl,
                             "set": "DEV",
                             "tau": tau,
+                        })
+                            # for detailed trade log           ### NEW ###
+                        trade_rows.append({
+                            "week": monday,
+                            "window": window,
+                            "side": side,
+                            "N": N_target,
+                            "theta": theta,
+                            "entry_ms": r.time_ms,
+                            "exit_ms": getattr(r, exit_col),
+                            "pl": pl_val,
                         })
                         trades += 1
                         pls.append(pl)
@@ -200,6 +211,13 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 vis_dir.mkdir(parents=True, exist_ok=True)
                 vis_file = path_utils.vis_file(pair, monday, window, side, N_target, theta)
                 df_vis.to_parquet(vis_file, compression="zstd")
+
+                if trade_rows:
+                    trade_dir = Path("data") / "knn" / "trades" / pair / f"week_{monday}" / f"window_{window}"
+                    trade_dir = path_utils.trade_dir(pair, monday, window)
+                    trade_dir.mkdir(parents=True, exist_ok=True)
+                    trade_file = path_utils.trade_file(pair, monday, window, side, N_target, theta)
+                    pd.DataFrame(trade_rows).to_parquet(trade_file, compression="zstd")
 
     return grids
 

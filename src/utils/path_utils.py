@@ -55,6 +55,12 @@ def grid_dir(pair: str, window: int) -> Path:
 def grid_file(pair: str, monday_date: str, window: int) -> Path:
     return grid_dir(pair, window) / f"week_{monday_date}.npy"
 
+def trade_dir(pair: str, monday_date: str, window: int) -> Path:
+    return DATA_ROOT / "knn" / "trades" / pair / f"window_{window}" / f"week_{monday_date}"
+
+def trade_file(pair: str, monday_date: str, window: int, side: str, N: int, theta: float) -> Path:
+    return trade_dir(pair, monday_date, window) / f"{side}_N{N}_theta{theta}.parquet"
+
 def vis_dir(pair: str, monday_date: str, window: int) -> Path:
     return DATA_ROOT / "knn" / "viz" / pair / f"window_{window}" / f"week_{monday_date}"
 
