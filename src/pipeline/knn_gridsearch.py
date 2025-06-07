@@ -182,16 +182,10 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                             "set": "DEV",
                             "tau": tau,
                         })
-                            # for detailed trade log           ### NEW ###
                         trade_rows.append({
-                            "week": monday,
-                            "window": window,
-                            "side": side,
-                            "N": N_target,
-                            "theta": theta,
                             "entry_ms": r.time_ms,
                             "exit_ms": getattr(r, exit_col),
-                            "pl": pl_val,
+                            "pl": pl,
                         })
                         trades += 1
                         pls.append(pl)
