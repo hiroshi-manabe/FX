@@ -67,6 +67,15 @@ def vis_dir(pair: str, monday_date: str, window: int) -> Path:
 def vis_file(pair: str, monday_date: str, window: int, side: str, N: int, theta: float) -> Path:
     return vis_dir(pair, monday_date, window) / f"{side}_N{N}_theta{theta}.parquet"
 
+def params_dir(pair: str) -> Path:
+    return DATA_ROOT / "knn" / "params" / pair
+
+def params_file(pair: str, monday_date: str) -> Path:
+    return params_dir(pair) / f"week_{monday_date}.json"
+
+def opps_file(pair: str, monday_date: str) -> Path:
+    return DATA_ROOT / "knn" / "opps" / pair / f"week_{monday_date}.csv"
+
 def quadratic_tag() -> str:
     return config.get("pipeline", "quadratic_alg_tag")
 
