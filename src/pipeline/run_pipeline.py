@@ -16,8 +16,10 @@ python src/pipeline/run_pipeline.py --start fit_quadratic --end filter_digest \
 """
 
 from pathlib import Path
-import argparse, os, subprocess, sys
+import argparse, os, subprocess, sys, shutil
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import date, timedelta
+from utils import path_utils, param_utils
 
 # -------------------------------------------------------------------------
 # Edit this ordered list if you add / remove stages.
@@ -79,6 +81,13 @@ def _prune_empty_dirs(path: Path):
             break  # not empty
         path = path.parent
 
+def purge_stale_windows(pair: str):
+    keep = {f"window_{w}" for w in param_utils.windows()}
+    for p in path_utils.data_root().glob(f"**/{pair}/window_*"):
+        if p.name not in keep:
+            print("[purge]", p)
+            shutil.rmtree(p, ignore_errors=True)
+        
 def run(cmd, env=None):
     print(f"[RUN] {' '.join(map(str, cmd))}", flush=True)
     rc = subprocess.call(cmd, env=env)
@@ -99,6 +108,7 @@ def main():
                     help="additional args forwarded to every stage")
     ap.add_argument("--force", action="store_true", default=False)
     ap.add_argument("--prune", action="store_true", default=False)
+    ap.add_argument("--purge", action="store_true", default=False)
     args = ap.parse_args()
     extra = args.extra or []
 
@@ -110,13 +120,13 @@ def main():
 
     # Ensure compiled helpers are on PATH / LD_LIBRARY_PATH
     env = os.environ.copy()
-    env["PATH"] = f"{Path('build/bin').resolve()}:{env['PATH']}"
-    env_var = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
-    env[env_var] = f"{Path('build/lib').resolve()}:{env.get(env_var,'')}"
     env["PYTHONPATH"] = f"{Path('src').resolve()}:{env.get('PYTHONPATH', '')}"
 
     if args.prune:
         prune_old_weeks(args.pair, args.weeks)
+
+    if args.purge:
+        purge_stale_windows(args.pair)
 
     # Per‑stage execution
     for stage in seq:

@@ -14,8 +14,14 @@ ALG_TAGS   = {
     "knn_v1": "knn_v1",
 }
 
+def data_root() -> Path:
+    return DATA_ROOT
+
 def dukascopy_raw_root() -> Path:
     return DATA_ROOT / "raw" / "dukascopy"
+
+def bin_dir() -> Path:
+    return PROJECT_ROOT / "build" / "bin"
 
 def raw_tick(pair: str, d: date, hour: int) -> Path:
     return (

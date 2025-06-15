@@ -15,7 +15,8 @@ import argparse, csv, json, math, datetime as dt
 from pathlib import Path
 import heapq, zoneinfo
 import pandas as pd
-from utils import config, path_utils as pu
+from utils import config, path_utils, param_utils
+from utils.dates import recent_mondays
 
 # ----------------------------------------------------------------------------
 PAIR       = config.get("pipeline", "currency_pair")
@@ -24,6 +25,10 @@ TEST_WEEKS = config.get("knn", "test_weeks", int)
 
 LIVE_DIR   = Path("data/eval/knn_v2/live")
 TOKYO      = zoneinfo.ZoneInfo("Asia/Tokyo")
+
+VALID_W     = set(param_utils.windows())
+VALID_N     = set(param_utils.N_all_effective())
+VALID_THETA = set(param_utils.thetas())
 
 # ----------------------------------------------------------------------------
 class HeapItem(tuple):
@@ -35,9 +40,13 @@ class HeapItem(tuple):
 
 def load_candidates(pair: str, week: str, window: int, side: str, N: int, theta: float) -> pd.DataFrame:
     """Load the candidate ticks (already scored & τ‑filtered) for one window/side."""
-    p = pu.trade_file(pair, week, window, side, N, theta)
+    p = path_utils.trade_file(pair, week, window, side, N, theta)
     if not p.exists():
-        return pd.DataFrame()
+        raise FileNotFoundError(
+            f"[knn_eval] missing {p}. "
+            "Did you forget to rebuild knn_gridsearch after changing "
+            "windows / N / θ in config.ini?"
+        )
     df = pd.read_parquet(p)
     df = df.assign(window=window, side=side)
     return df.sort_values("entry_ms")
@@ -71,23 +80,36 @@ def merge_streams(streams: list[pd.DataFrame]) -> list[dict]:
 # ----------------------------------------------------------------------------
 
 def evaluate(pair: str, weeks_horizon: int):
-    last_mon = dt.date.today() - dt.timedelta(days=dt.date.today().weekday())
-    cutoff   = (last_mon - dt.timedelta(weeks=weeks_horizon)).isoformat()
-
-    params_dir = pu.params_dir(pair)
-    for pf in sorted(params_dir.glob("week_*.json")):
-        week = pf.stem.split("_",1)[1]
-        if week < cutoff:
+    param_mondays = recent_mondays(TEST_WEEKS)
+    params_dir = path_utils.params_dir(pair)
+    for week in param_mondays:        # newest→oldest order
+        pf = path_utils.params_file(pair, week)
+        if not pf.exists():
+            print("skip", week, "– no manifest")
             continue
-        sel = json.loads(pf.read_text())
-        streams = []
-        for w in sel["windows"]:
-            for side in ("buy", "sell"):
-                cand = load_candidates(pair, week,
-                                        window=w["window"], side=side,
-                                        N=w["N"], theta=w["theta"])
-                if len(cand):
-                    streams.append(cand)
+        
+        sel0 = json.loads(pf.read_text())
+        orig = len(sel0["windows"])
+        sel0["windows"] = [
+            w for w in sel0["windows"]
+            if w["window"] in VALID_W
+               and w["N"]      in VALID_N
+               and w["theta"]  in VALID_THETA
+        ]
+        if len(sel0["windows"]) < orig:
+            raise ValueError(
+                f"[knn_eval] manifest {pf.name} references "
+                f"window/N/θ no longer in config.ini; "
+                "re-run knn_gridsearch & select_params."
+            )       
+        streams = [
+            load_candidates(pair, week,
+                            window=w["window"],
+                            side=w["side"],          # ⟵ use the chosen side
+                            N=w["N"], theta=w["theta"])
+            for w in sel0["windows"]
+        ]
+        streams = [s for s in streams if len(s)]     # drop empty
         if not streams:
             print("skip", week, "– no streams")
             continue
@@ -109,5 +131,6 @@ if __name__ == "__main__":
     ap.add_argument("--pair",  default=PAIR)
     ap.add_argument("--weeks", type=int, default=80,
                     help="look‑back horizon (like run_pipeline)")
+    ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
     evaluate(args.pair.upper(), args.weeks)

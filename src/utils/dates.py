@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime as dt
 import zoneinfo
 from typing import List
+import math
 
 NY = zoneinfo.ZoneInfo("America/New_York")
 UTC = dt.timezone.utc
@@ -40,11 +41,19 @@ def last_completed_monday_utc(now_utc: dt.datetime | None = None) -> dt.datetime
     return monday_ny.astimezone(UTC)
 
 
-def mondays_between(start_mon: dt.date, end_mon: dt.date) -> List[str]:
-    """Return ISO‑formatted Monday dates from *start* to *end* inclusive."""
-    out: List[str] = []
-    d = start_mon
-    while d <= end_mon:
-        out.append(d.isoformat())
-        d += dt.timedelta(weeks=1)
-    return out
+def recent_monday_dates(n: int | None = None, *, newest_first: bool = True) -> list[dt.date]:
+    """
+    Return the last *n* completed Monday dates (UTC), inclusive.
+    If n is None or math.inf, return 'all' Mondays back to 10 000 weeks.
+    """
+    if n is None or n is math.inf:
+        n = 10_000                     # effectively “unlimited”
+    base = last_completed_monday_utc().date()
+    seq  = [base - dt.timedelta(weeks=i) for i in range(n)]
+    if not newest_first:
+        seq.reverse()
+    return seq
+
+def recent_mondays(n: int | None = None, *, newest_first: bool = True) -> list[str]:
+    """Same as above but ISO-formatted strings."""
+    return [d.isoformat() for d in recent_monday_dates(n, newest_first=newest_first)]

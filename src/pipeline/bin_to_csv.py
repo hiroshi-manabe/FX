@@ -14,8 +14,8 @@ from pathlib import Path
 from multiprocessing.pool import ThreadPool
 from utils import path_utils
 
-BIN2CSV = path_utils.PROJECT_ROOT / "build" / "bin" / "bin_to_csv"
-RAWROOT = path_utils.DATA_ROOT   / "raw" / "dukascopy"
+BIN2CSV = path_utils.bin_dir() / "bin_to_csv"
+RAWROOT = path_utils.dukascopy_raw_root()
 CONCURRENCY = 8
 
 def lzma_decompress(src: Path, dst: Path):

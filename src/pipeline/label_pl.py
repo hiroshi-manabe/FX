@@ -16,20 +16,13 @@ import subprocess
 from pathlib import Path
 
 from utils import path_utils, config
+from utils.dates import recent_mondays
 
-BIN = Path("build/bin/label_pl")
+BIN = path_utils.bin_dir() / "label_pl"
 PL_TAG = config.get("pipeline", "pl_tag")
 PL_LIMIT = int(re.findall(r"\d+", PL_TAG)[0])
 SPREAD_DELTA = config.get("pipeline", "spread_delta", int)
 DECISION_HORIZON = config.get("pipeline", "decision_horizon_ms", int)
-
-
-def monday_dates(pair: str, limit: int | None):
-    weeks = sorted(path_utils.weekly_dir(pair).glob("week_*.csv"))
-    if limit:
-        weeks = weeks[-limit:]
-    return [p.stem.split("_")[1] for p in weeks]
-
 
 def process_week(pair: str, monday: str, force: bool) -> str:
     src = path_utils.weekly_file(pair, monday)
@@ -56,7 +49,7 @@ def process_week(pair: str, monday: str, force: bool) -> str:
 
 def main(pair: str, weeks: int | None, force: bool):
     stats = {"ok": 0, "skip": 0, "err": 0}
-    for monday in monday_dates(pair, weeks):
+    for monday in recent_mondays(weeks, newest_first=False):
         stats[process_week(pair, monday, force)] += 1
     print("label_pl", *(f"{k}={v}" for k, v in stats.items()))
 

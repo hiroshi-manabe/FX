@@ -19,29 +19,26 @@ import csv
 import collections
 from pathlib import Path
 
-from utils import path_utils, config
+from utils import path_utils, config, param_utils
+from utils.dates import recent_mondays
 
 # --- config --------------------------------------------------------
-WINDOWS              = config.getlist("pipeline", "windows", int)
-ALG_TAG              = config.get("pipeline", "quadratic_alg_tag")
-PL_TAG               = config.get("pipeline", "pl_tag")
+WINDOWS         = param_utils.windows()
+ALG_TAG         = config.get("pipeline", "quadratic_alg_tag")
+PL_TAG          = config.get("pipeline", "pl_tag")
 
-R2_THR               = config.get("digest", "r2_threshold", float)
-A_MIN                = config.get("digest", "min_abs_a", float)
-A_MAX                = config.get("digest", "max_abs_a", float)
-B_MIN                = config.get("digest", "min_abs_b", float)
-B_MAX                = config.get("digest", "max_abs_b", float)
-C_MAX                = config.get("digest", "max_abs_c", float)
-MAX_MS_PER_TICK      = config.get("digest", "max_ms_per_tick", float)  # density gate
+R2_THR          = config.get("digest", "r2_threshold", float)
+A_MIN           = config.get("digest", "min_abs_a", float)
+A_MAX           = config.get("digest", "max_abs_a", float)
+B_MIN           = config.get("digest", "min_abs_b", float)
+B_MAX           = config.get("digest", "max_abs_b", float)
+C_MAX           = config.get("digest", "max_abs_c", float)
+MAX_MS_PER_TICK = config.get("digest", "max_ms_per_tick", float)  # density gate
 
 # ------------------------------------------------------------------
 
 def weekly_dates(pair: str, window: int, limit: int | None):
-    feats = sorted(path_utils.features_dir(pair, window, ALG_TAG).glob("week_*.csv"))
-    if limit:
-        feats = feats[-limit:]
-    return [p.stem.split("_")[1] for p in feats]
-
+    return recent_mondays(limit or float("inf"), newest_first=False)
 
 def row_passes(r2: float, a: float, b: float, c:float) -> bool:
     return (
@@ -50,7 +47,6 @@ def row_passes(r2: float, a: float, b: float, c:float) -> bool:
         and B_MIN <= abs(b) <= B_MAX
         and abs(c) <= C_MAX
     )
-
 
 def process(pair: str, monday: str, window: int, force: bool) -> str:
     src = path_utils.features_file(pair, monday, window)

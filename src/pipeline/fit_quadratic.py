@@ -9,19 +9,18 @@ Call   : build/bin/fit_quadratic <window>  (stdin = label CSV, stdout = feature 
 
 import argparse, subprocess, zoneinfo, datetime as dt
 from pathlib import Path
-from utils import path_utils, config
+from utils import path_utils, config, param_utils
+from utils.dates import recent_mondays
 
-BIN      = Path("build/bin/fit_quadratic")
-WINDOWS  = config.getlist("pipeline", "windows", int)
+BIN      = path_utils.bin_dir() / "fit_quadratic"
 ALG_TAG  = config.get("pipeline", "quadratic_alg_tag")
 PL_TAG   = config.get("pipeline", "pl_tag")
 TOKYO    = zoneinfo.ZoneInfo("Asia/Tokyo")
+WINDOWS = param_utils.windows()
 
 def monday_dates(pair: str, limit: int | None):
-    all_weeks = sorted(path_utils.label_pl_dir(pair, PL_TAG).glob("week_*.csv"))
-    if limit:
-        all_weeks = all_weeks[-limit:]
-    return [w.stem.split("_")[1] for w in all_weeks]
+    # calendar list (oldest → newest), limited by --weeks
+    return recent_mondays(limit or float("inf"), newest_first=False)
 
 def process(pair: str, monday: str, window: int, force: bool) -> str:
     src = path_utils.label_pl_file(pair, monday, PL_TAG)
