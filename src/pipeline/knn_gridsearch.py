@@ -233,6 +233,8 @@ def main(argv: list[str] | None = None):
     ap.add_argument("--pair",  default="USDJPY")
     ap.add_argument("--weeks", type=int,  default=80,
                     help="horizon to look back from last completed week")
+    ap.add_argument("--debug", action="store_true",
+                    help="run single-threaded for easier debugging")
     ap.add_argument("-j", "--jobs", type=int, default=min(4, CPU),
                     help="parallel workers (default 4 or #cores)")
     ap.add_argument("--force", action="store_true")
@@ -250,11 +252,16 @@ def main(argv: list[str] | None = None):
     GRID_WEEKS = DEV_WEEKS + TEST_WEEKS
     grid_mondays = mondays[:GRID_WEEKS]          # newest → oldest slice
 
-    tasks = [(pair, mon, window, args.force) for mon in grid_mondays for window in WINDOWS]
+    tasks = [(pair, mon, window, args.force)
+             for mon in grid_mondays for window in WINDOWS]
 
-    with cf.ProcessPoolExecutor(max_workers=args.jobs) as pool:
-        for msg in pool.map(_worker, tasks, chunksize=1):
-            print(msg)
+    if args.debug:                    # ⇢ serial, ignore -j
+        for t in tasks:
+            print(_worker(t))
+    else:                             # ⇢ parallel
+        with cf.ProcessPoolExecutor(max_workers=args.jobs) as pool:
+            for msg in pool.map(_worker, tasks, chunksize=1):
+                print(msg)
 
 if __name__ == "__main__":
     main()
