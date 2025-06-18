@@ -20,5 +20,5 @@ def N_all_effective() -> list[int]:
     return [_N_effective(n) for n in _N_cfg_list()]
 
 # --- theta list ------------------------------------------------------
-def thetas() -> list[int]:
-    return config.getlist("knn", "thetas", int)
+def thetas() -> list[float]:
+    return config.getlist("knn", "thetas", float)
