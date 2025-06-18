@@ -19,35 +19,32 @@ class KNNModel:
         self._tree = KDTree(X, metric="minkowski", p=2)
         self._labels = df[["buyPL", "sellPL"]].values.astype(float)
 
-    def scores(self, x_query: tuple[float, float], pl_cut: float = 30.0,
-               weighted: bool = True) -> dict[str, tuple[int, int, float]]:
-        """Return wins, losses, meanPL for buy and sell around *x_query*."""
+    def scores(self, x_query: tuple[float, float],
+               eps: float = 1e-6) -> dict[str, float]:
+        """
+        Distance-weighted confidence (‘edge’) for BUY and SELL at *x_query*.
+
+        Returns
+        -------
+        { "buy":  edge_buy,
+          "sell": edge_sell }
+        where  edge ∈ [-1 , +1].
+        """
         if self._tree is None:
             raise RuntimeError("Model not fitted")
-        dist, idx = self._tree.query([x_query], k=self.k)
-        idx = idx[0]
-        d_inv = 1.0 / (dist[0] + 1e-9) if weighted else np.ones_like(dist[0])
 
-        wins_b = losses_b = wins_s = losses_s = 0
-        pl_sum_b = pl_sum_s = 0.0
-        w_sum_b = w_sum_s = 0.0
+        dist, idx = self._tree.query([x_query], k=self.k)   # (1,k)
+        dist = dist[0]
+        rows = self._labels[idx[0]]                        # (k, 2) -> buyPL , sellPL
 
-        for w, i in zip(d_inv, idx):
-            buy_pl, sell_pl = self._labels[i]
-            # BUY side
-            if buy_pl >= +pl_cut:
-                wins_b += 1; pl_sum_b += w * buy_pl; w_sum_b += w
-            elif buy_pl <= -pl_cut:
-                losses_b += 1; pl_sum_b += w * buy_pl; w_sum_b += w
-            # SELL side
-            if sell_pl >= +pl_cut:
-                wins_s += 1; pl_sum_s += w * sell_pl; w_sum_s += w
-            elif sell_pl <= -pl_cut:
-                losses_s += 1; pl_sum_s += w * sell_pl; w_sum_s += w
+        buy_pl  = rows[:, 0]
+        sell_pl = rows[:, 1]
 
-        mean_b = 0.0 if w_sum_b == 0 else pl_sum_b / w_sum_b
-        mean_s = 0.0 if w_sum_s == 0 else pl_sum_s / w_sum_s
-        return {
-            "buy":  (wins_b, losses_b, mean_b),
-            "sell": (wins_s, losses_s, mean_s),
-        }
+        # neighbour label  y_i  = +1 if BUY wins, else −1
+        y_buy = np.where(buy_pl > sell_pl, 1.0, -1.0)
+
+        w = 1.0 / (dist + eps)                            # inverse-distance weights
+        edge_buy  = float(np.dot(w, y_buy) / w.sum())     # in [-1 , +1]
+        edge_sell = -edge_buy                             # perfect symmetry
+
+        return {"buy": edge_buy, "sell": edge_sell}
