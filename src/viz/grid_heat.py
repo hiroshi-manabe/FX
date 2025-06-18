@@ -60,7 +60,7 @@ Z[Z == 0] = np.nan  # mark unreachable cells
 # Axis labels – pull from config so they stay consistent
 from utils import config
 NS_WEEK = config.getlist("knn", "Ns_week", int)
-THETAS = config.getlist("knn", "thetas", int)
+THETAS = config.getlist("knn", "thetas", float)
 
 # -----------------------------------------------------------------------------
 # Build heat‑map  – wide aspect + fixed colour scale (−15 … +15)
