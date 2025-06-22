@@ -24,7 +24,7 @@ SPREAD_DELTA = config.get("pipeline", "spread_delta", int)
 WINDOWS = param_utils.windows()
 TIME_RATIO  = config.get("pipeline", "time_limit", float)
 
-def process(pair: str, monday: str, window: int force: bool) -> str:
+def process(pair: str, monday: str, window: int, force: bool) -> str:
     src = path_utils.weekly_file(pair, monday)
     if not src.exists():
         return "skip"
