@@ -27,6 +27,6 @@ def label_tag() -> str:
     """Return composite tag like  pl30_t0.50  (two decimals fixed)."""
     from utils import config
     pl  = config.get("pipeline", "pl_limit",  int)
-    tau = config.get("pipeline", "time_limit", float, fallback=0.0)
+    tau = config.get("pipeline", "time_limit", float)
     return f"pl{pl}_t{tau:0.2f}"
 
