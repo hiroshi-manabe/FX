@@ -16,10 +16,6 @@ BIN      = path_utils.bin_dir() / "fit_quadratic"
 TOKYO    = zoneinfo.ZoneInfo("Asia/Tokyo")
 WINDOWS = param_utils.windows()
 
-def monday_dates(pair: str, limit: int | None):
-    # calendar list (oldest → newest), limited by --weeks
-    return recent_mondays(limit or float("inf"), newest_first=False)
-
 def process(pair: str, monday: str, window: int, force: bool) -> str:
     src = path_utils.label_file(pair, monday, window)
     if not src.exists():
@@ -35,7 +31,7 @@ def process(pair: str, monday: str, window: int, force: bool) -> str:
 def main(pair: str, limit: int | None, force: bool):
     for w in WINDOWS:
         stats = {"ok": 0, "skip": 0, "err": 0}
-        for monday in monday_dates(pair, limit):
+        for monday in recent_mondays(weeks, newest_first=False):
             try:
                 stats[process(pair, monday, w, force)] += 1
             except subprocess.CalledProcessError:

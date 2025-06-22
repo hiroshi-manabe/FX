@@ -24,36 +24,38 @@ SPREAD_DELTA = config.get("pipeline", "spread_delta", int)
 WINDOWS = param_utils.windows()
 TIME_RATIO  = config.get("pipeline", "time_limit", float)
 
-def process_week(pair: str, monday: str, force: bool) -> str:
+def process(pair: str, monday: str, window: int force: bool) -> str:
     src = path_utils.weekly_file(pair, monday)
     if not src.exists():
         return "skip"
-    for W in WINDOWS:
-        dst = path_utils.label_file(pair, monday, W)
-        if dst.exists() and not force:
-            return "skip"
-        dst.parent.mkdir(parents=True, exist_ok=True)
+    dst = path_utils.label_file(pair, monday, window)
+    if dst.exists() and not force:
+        return "skip"
+    dst.parent.mkdir(parents=True, exist_ok=True)
 
-        horizon = int(W * TIME_RATIO)
-        cmd = [
-            str(BIN),
-            str(PL_LIMIT),
-            str(SPREAD_DELTA),
-            str(horizon),
-        ]
-        try:
-            with src.open("rb") as fin, dst.open("wb") as fout:
-                subprocess.check_call(cmd, stdin=fin, stdout=fout)
-            return "ok"
-        except subprocess.CalledProcessError:
-            return "err"
-
+    horizon = int(window * TIME_RATIO)
+    cmd = [
+        str(BIN),
+        str(PL_LIMIT),
+        str(SPREAD_DELTA),
+        str(horizon),
+    ]
+    try:
+        with src.open("rb") as fin, dst.open("wb") as fout:
+            subprocess.check_call(cmd, stdin=fin, stdout=fout)
+        return "ok"
+    except subprocess.CalledProcessError:
+        return "err"
 
 def main(pair: str, weeks: int | None, force: bool):
-    stats = {"ok": 0, "skip": 0, "err": 0}
-    for monday in recent_mondays(weeks, newest_first=False):
-        stats[process_week(pair, monday, force)] += 1
-    print("label_pl", *(f"{k}={v}" for k, v in stats.items()))
+    for w in WINDOWS:
+        stats = {"ok": 0, "skip": 0, "err": 0}
+        for monday in recent_mondays(weeks, newest_first=False):
+            try:
+                stats[process(pair, monday, w, force)] += 1
+            except subprocess.CalledProcessError:
+                stats["err"] += 1
+        print(f"window {w}: ok={stats['ok']} skip={stats['skip']} err={stats['err']}")
 
 
 if __name__ == "__main__":
