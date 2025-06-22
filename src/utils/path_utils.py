@@ -48,7 +48,7 @@ def features_dir(pair: str, window: int) -> Path:
             tag_ctx.feat_tag() / pair / f"window_{window}")
 
 def features_file(pair: str, monday_date: str, window: int) -> Path:
-    return features_dir(pair, window, alg) / f"week_{monday_date}.csv"
+    return features_dir(pair, window) / f"week_{monday_date}.csv"
 
 def digest_dir(pair: str, window: int) -> Path:
     return (data_root() / "digest" / tag_ctx.label_tag() /
