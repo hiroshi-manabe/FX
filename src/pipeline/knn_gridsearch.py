@@ -45,8 +45,8 @@ NS               = param_utils.N_all_effective()
 THETAS           = param_utils.thetas()
 MIN_TRADES       = config.get("knn", "min_trades_dev", int)
 CPU = os.cpu_count() or 4
-GAMMA            = config.get("knn", "gamma", float, fallback=0.35)
-PL_LIMIT         = config.get("pipeline", "pl_limit", float, fallback=0.0)
+GAMMA            = config.get("knn", "gamma", float)
+PL_LIMIT         = config.get("pipeline", "pl_limit", float)
 # ---------------------------------------------------------------------------
 
 def concat_train(pair: str, mondays: list[str], window: int) -> pd.DataFrame:
