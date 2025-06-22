@@ -22,7 +22,7 @@ BIN = path_utils.bin_dir() / "label_pl"
 PL_LIMIT = config.get("pipeline", "pl_limit", int)
 SPREAD_DELTA = config.get("pipeline", "spread_delta", int)
 WINDOWS = param_utils.windows()
-TIME_RATIO  = config.getfloat("pipeline", "time_limit")
+TIME_RATIO  = config.get("pipeline", "time_limit", float)
 
 def process_week(pair: str, monday: str, force: bool) -> str:
     src = path_utils.weekly_file(pair, monday)
