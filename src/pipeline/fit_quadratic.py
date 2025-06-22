@@ -23,10 +23,10 @@ def monday_dates(pair: str, limit: int | None):
     return recent_mondays(limit or float("inf"), newest_first=False)
 
 def process(pair: str, monday: str, window: int, force: bool) -> str:
-    src = path_utils.label_pl_file(pair, monday, PL_TAG)
+    src = path_utils.label_file(pair, monday, window)
     if not src.exists():
         return "skip"
-    dst = path_utils.features_file(pair, monday, window, ALG_TAG)
+    dst = path_utils.features_file(pair, monday, window)
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists() and not force:
         return "skip"

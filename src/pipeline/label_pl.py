@@ -15,36 +15,38 @@ import re
 import subprocess
 from pathlib import Path
 
-from utils import path_utils, config
+from utils import path_utils, config, params_utils
 from utils.dates import recent_mondays
 
 BIN = path_utils.bin_dir() / "label_pl"
-PL_TAG = config.get("pipeline", "pl_tag")
-PL_LIMIT = int(re.findall(r"\d+", PL_TAG)[0])
+PL_LIMIT = config.get("pipeline", "pl_limit", int)
 SPREAD_DELTA = config.get("pipeline", "spread_delta", int)
-DECISION_HORIZON = config.get("pipeline", "decision_horizon_ms", int)
+WINDOWS = param_utils.windows()
+TIME_RATIO  = config.getfloat("pipeline", "time_limit")
 
 def process_week(pair: str, monday: str, force: bool) -> str:
     src = path_utils.weekly_file(pair, monday)
     if not src.exists():
         return "skip"
-    dst = path_utils.label_pl_file(pair, monday, PL_TAG)
+    dst = path_utils.label_file(pair, monday, window)
     if dst.exists() and not force:
         return "skip"
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        str(BIN),
-        str(PL_LIMIT),
-        str(SPREAD_DELTA),
-        str(DECISION_HORIZON),
-    ]
-    try:
-        with src.open("rb") as fin, dst.open("wb") as fout:
-            subprocess.check_call(cmd, stdin=fin, stdout=fout)
-        return "ok"
-    except subprocess.CalledProcessError:
-        return "err"
+    for W in WINDOWS:
+        horizon = int(W * TIME_RATIO)
+        cmd = [
+            str(BIN),
+            str(PL_LIMIT),
+            str(SPREAD_DELTA),
+            str(horizon),
+        ]
+        try:
+            with src.open("rb") as fin, dst.open("wb") as fout:
+                subprocess.check_call(cmd, stdin=fin, stdout=fout)
+            return "ok"
+        except subprocess.CalledProcessError:
+            return "err"
 
 
 def main(pair: str, weeks: int | None, force: bool):

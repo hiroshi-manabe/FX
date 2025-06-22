@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
-#!/usr/bin/env python3
 """
 filter_digest.py – apply quality + density filters and enforce
 "one‑trade‑at‑a‑time" spacing.
-
-Reads  : data/features/<ALG_TAG>/<PAIR>/window_<W>/week_<YYYY-MM-DD>.csv
-Writes : data/digest/<PAIR>/window_<W>/week_<YYYY-MM-DD>.csv
 
 Filtering steps per row:
 1.  R² ≥ r2_threshold and |a|,|b| within bounds.
@@ -24,8 +20,6 @@ from utils.dates import recent_mondays
 
 # --- config --------------------------------------------------------
 WINDOWS         = param_utils.windows()
-ALG_TAG         = config.get("pipeline", "quadratic_alg_tag")
-PL_TAG          = config.get("pipeline", "pl_tag")
 
 R2_THR          = config.get("digest", "r2_threshold", float)
 A_MIN           = config.get("digest", "min_abs_a", float)

@@ -58,9 +58,9 @@ def prune_old_weeks(pair: str, keep_weeks: int):
 
     patterns = [
         f"data/weekly/{pair}/week_*.csv",
-        f"data/labels/*/{pair}/week_*.csv",
-        f"data/features/*/{pair}/window_*/week_*.csv",
-        f"data/digest/*/{pair}/window_*/week_*.csv",
+        f"data/labels/*/{pair}/window_*/week_*.csv",
+        f"data/features/*/*/{pair}/window_*/week_*.csv",
+        f"data/digest/*/*/{pair}/window_*/week_*.csv",
     ]
     removed = 0
     for pat in patterns:

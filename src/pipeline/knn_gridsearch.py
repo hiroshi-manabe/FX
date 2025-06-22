@@ -45,7 +45,8 @@ NS               = param_utils.N_all_effective()
 THETAS           = param_utils.thetas()
 MIN_TRADES       = config.get("knn", "min_trades_dev", int)
 CPU = os.cpu_count() or 4
-
+GAMMA            = config.get("knn", "gamma", float, fallback=0.35)
+PL_LIMIT         = config.get("pipeline", "pl_limit", float, fallback=0.0)
 # ---------------------------------------------------------------------------
 
 def concat_train(pair: str, mondays: list[str], window: int) -> pd.DataFrame:
@@ -136,7 +137,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
             if df_kept.empty:
                 continue
 
-            model = KNNModel(k=K)
+            model = KNNModel(k=K, gamma=GAMMA, pl_limit=PL_LIMIT)   
             model.fit(df_kept)
 
             # -------- iterate theta values -------------------------------
