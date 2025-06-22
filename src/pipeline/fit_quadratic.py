@@ -13,8 +13,6 @@ from utils import path_utils, config, param_utils
 from utils.dates import recent_mondays
 
 BIN      = path_utils.bin_dir() / "fit_quadratic"
-ALG_TAG  = config.get("pipeline", "quadratic_alg_tag")
-PL_TAG   = config.get("pipeline", "pl_tag")
 TOKYO    = zoneinfo.ZoneInfo("Asia/Tokyo")
 WINDOWS = param_utils.windows()
 
