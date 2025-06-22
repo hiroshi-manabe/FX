@@ -15,7 +15,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from utils import path_utils, config, params_utils
+from utils import path_utils, config, param_utils
 from utils.dates import recent_mondays
 
 BIN = path_utils.bin_dir() / "label_pl"
