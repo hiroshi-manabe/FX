@@ -28,12 +28,12 @@ def process_week(pair: str, monday: str, force: bool) -> str:
     src = path_utils.weekly_file(pair, monday)
     if not src.exists():
         return "skip"
-    dst = path_utils.label_file(pair, monday, window)
-    if dst.exists() and not force:
-        return "skip"
-    dst.parent.mkdir(parents=True, exist_ok=True)
-
     for W in WINDOWS:
+        dst = path_utils.label_file(pair, monday, W)
+        if dst.exists() and not force:
+            return "skip"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
         horizon = int(W * TIME_RATIO)
         cmd = [
             str(BIN),

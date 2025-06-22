@@ -14,4 +14,4 @@ def feat_tag() -> str:
 
 def knn_tag() -> str:
     return _from_env("FX_KNN_TAG",
-                     config.get("pipeline", "knn_alg_tag", fallback="knn_v1"))
+                     config.get("pipeline", "knn_alg_tag"))

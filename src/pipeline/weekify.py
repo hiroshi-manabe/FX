@@ -24,7 +24,7 @@ NY    = zoneinfo.ZoneInfo("America/New_York")
 # ---------------------------------------------------------------------
 
 def process_week(pair: str, monday: dt.datetime, force: bool) -> str:
-    out_file = path_utils.weekly_file(pair, monday)
+    out_file = path_utils.weekly_file(pair, monday.date().isoformat())
     if out_file.exists() and not force:
         return "skip"
 
