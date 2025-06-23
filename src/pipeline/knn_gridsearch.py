@@ -164,6 +164,9 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                         continue
 
                     sc = model.scores((r.a, r.b))
+                    if sc is None:
+                        continue
+                    
                     if sc[side] >= theta:
                         pl = getattr(r, pl_col)
                         dev_rows.append({
