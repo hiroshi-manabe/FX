@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
                     buy_pl =  pl_limit; buy_ts = tk;
                 } else if (bidk - ask_entry <= -pl_limit) {
                     buy_pl = -pl_limit; buy_ts = tk;
-                } else if (dt >= horizon_ms) {
+                } else if (horizon_ms != 0 && dt >= horizon_ms) {
                     buy_pl = askk - ask_entry; buy_ts = tk;
                 }
             }
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
                     sell_pl =  pl_limit; sell_ts = tk;
                 } else if (askk - bid_entry >= pl_limit) {
                     sell_pl = -pl_limit; sell_ts = tk;
-                } else if (dt >= horizon_ms) {
+                } else if (horizon_ms != 0 && dt >= horizon_ms) {
                     sell_pl = bid_entry - bidk; sell_ts = tk;
                 }
             }
