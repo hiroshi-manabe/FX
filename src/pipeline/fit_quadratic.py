@@ -28,7 +28,7 @@ def process(pair: str, monday: str, window: int, force: bool) -> str:
         subprocess.check_call([BIN, str(window)], stdin=fin, stdout=fout)
     return "ok"
 
-def main(pair: str, limit: int | None, force: bool):
+def main(pair: str, weeks: int | None, force: bool):
     for w in WINDOWS:
         stats = {"ok": 0, "skip": 0, "err": 0}
         for monday in recent_mondays(weeks, newest_first=False):
@@ -44,5 +44,5 @@ if __name__ == "__main__":
     ap.add_argument("--weeks", type=int, default=None)
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
-    weeks_limit = args.weeks or config.get("pipeline", "weeks_default", int)
-    main(args.pair.upper(), weeks_limit, args.force)
+    weeks = args.weeks or config.get("pipeline", "weeks_default", int)
+    main(args.pair.upper(), weeks, args.force)
