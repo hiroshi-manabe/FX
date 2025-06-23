@@ -34,7 +34,7 @@ def process(pair: str, monday: str, window: int, force: bool) -> str:
         return "skip"
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    horison = DEFAULT_TIME_LIMIT
+    horizon = DEFAULT_TIME_LIMIT
     if TIME_RATIO:
         horizon = int(window * TIME_RATIO)
 
