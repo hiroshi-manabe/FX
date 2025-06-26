@@ -46,9 +46,18 @@ def load_digest(pair: str, monday: str, window: int) -> pd.DataFrame:
 
             time_ms = int(cols[0])
             buy_sell   = cols[5].split(":")       # 4 parts
-            if len(buy_sell) != 4:
+            if len(buy_sell) not in (4, 6):
                 continue
-            buyPL, buyExit, sellPL, sellExit = map(float, buy_sell)
+            
+            buyPL, buyExit, sellPL, sellExit = map(float, buy_sell[:4])
+            # optional no-hit flags
+            if len(buy_sell) == 6:
+                buyNoHit, sellNoHit = map(int, buy_sell[4:])
+                buyNoHit  = bool(buyNoHit)
+                sellNoHit = bool(sellNoHit)
+            else:
+                buyNoHit  = sellNoHit = False
+
 
             win_part = cols[6].split(":")         # "window:a:b:c:r2"
             if len(win_part) != 5:
@@ -65,6 +74,8 @@ def load_digest(pair: str, monday: str, window: int) -> pd.DataFrame:
                 "buyExit":   buyExit,
                 "sellPL":    sellPL,
                 "sellExit":  sellExit,
+                "buyNoHit":  buyNoHit,
+                "sellNoHit": sellNoHit,
             })
 
     df = pd.DataFrame(rows).sort_values("time_ms").reset_index(drop=True)

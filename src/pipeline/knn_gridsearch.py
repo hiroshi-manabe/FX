@@ -137,15 +137,20 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
             if df_kept.empty:
                 continue
 
-            model = KNNModel(k=K, gamma=GAMMA, pl_limit=PL_LIMIT)   
+            model = KNNModel(k=K, pl_limit=PL_LIMIT)
             model.fit(df_kept)
 
             # -------- iterate theta values -------------------------------
             # For visualization: rows that passed tau+spacing (TRAIN)
             df_train_vis = (
-                df_kept[["time_ms", "a", "b", "r2", pl_col]]
-                .rename(columns={pl_col: "pl"})
-                .assign(set="TRAIN", tau=tau)
+                df_kept[["time_ms", "a", "b", "r2",
+                         pl_col, f"{side}NoHit"]]
+                .rename(columns={pl_col: "pl",
+                                 f"{side}NoHit": "no_hit"})
+                .assign(set="TRAIN", tau=tau,
+                        w=np.nan, d=np.nan, l=np.nan,
+                        cv=np.nan, passed_gamma=True,
+                        passed_theta=True, passed=True)
             )
 
             for jT, theta in enumerate(THETAS):
@@ -156,36 +161,52 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 last_exit = -1_000_000_000  # enforce spacing on DEV too
 
                 for r in df_dev.itertuples(index=False):
-                    #  skip low-quality fits
-                    if r.r2 < tau:
+                    if r.r2 < tau:                                       # poor fit
                         continue
-                    # simple spacing guard between DEV trades
-                    if r.time_ms < last_exit + SPACING_MS:
+                    if r.time_ms < last_exit + SPACING_MS:               # spacing
                         continue
 
                     sc = model.scores((r.a, r.b))
-                    if sc is None:
-                        continue
-                    
-                    if sc[side] >= theta:
-                        pl = getattr(r, pl_col)
-                        dev_rows.append({
-                            "time_ms": r.time_ms,
-                            "a": r.a,
-                            "b": r.b,
-                            "r2": r.r2,
-                            "pl": pl,
-                            "set": "DEV",
-                            "tau": tau,
-                        })
-                        trade_rows.append({
-                            "entry_ms": r.time_ms,
-                            "exit_ms": getattr(r, exit_col),
-                            "pl": pl,
-                        })
-                        trades += 1
-                        pls.append(pl)
-                        last_exit = getattr(r, exit_col)
+                    cv_val        = sc["cv"]
+                    passed_gamma  = cv_val <= GAMMA
+
+                    # defaults if γ failed
+                    w = d = l = 0
+                    edge = -np.inf
+                    passed_theta = False
+
+                    if passed_gamma:
+                        stat = sc[side]          # dict w,d,l,edge
+                        w, d, l, edge = stat["w"], stat["d"], stat["l"], stat["edge"]
+                        passed_theta = edge >= theta
+
+                    passed = passed_gamma and passed_theta
+
+                    # always log DEV row
+                    dev_rows.append({
+                        "time_ms": r.time_ms,
+                        "a": r.a, "b": r.b, "r2": r.r2,
+                        "pl": getattr(r, pl_col),
+                        "no_hit": getattr(r, f"{side}NoHit"),
+                        "set": "DEV", "tau": tau,
+                        "cv": cv_val, "w": w, "d": d, "l": l,
+                        "passed_gamma": passed_gamma,
+                        "passed_theta": passed_theta,
+                        "passed": passed,
+                    })
+
+                    if not passed:
+                        continue        # no trade executed
+
+                    # register executed trade
+                    trade_rows.append({
+                        "entry_ms": r.time_ms,
+                        "exit_ms": getattr(r, exit_col),
+                        "pl": getattr(r, pl_col),
+                    })
+                    trades += 1
+                    pls.append(getattr(r, pl_col))
+                    last_exit = getattr(r, exit_col)
 
                 if trades >= MIN_TRADES:
                     mean = float(np.mean(pls))

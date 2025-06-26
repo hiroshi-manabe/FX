@@ -104,9 +104,12 @@ int main(int argc, char *argv[]) {
         }
 
         // emit row + result block
+        bool buy_nohit  = std::abs(buy_pl)  < pl_limit;
+        bool sell_nohit = std::abs(sell_pl) < pl_limit;
+
         cout << raw_rows[i] << ','
              << buy_pl  << ':' << buy_ts  << ':'
-             << sell_pl << ':' << sell_ts << '\n';
-    }
+             << sell_pl << ':' << sell_ts << ':'
+             << buy_nohit  << ':' << sell_nohit << '\n';    }
     return 0;
 }

@@ -79,7 +79,7 @@ def vis_dir(pair: str, monday_date: str, window: int) -> Path:
             f"window_{window}" / f"week_{monday_date}")
 
 def vis_file(pair: str, monday_date: str, window: int, side: str, N: int, theta: float) -> Path:
-    return vis_dir(pair, monday_date, window) / f"{side}_N{N}_theta{theta*100}.parquet"
+    return vis_dir(pair, monday_date, window) / f"{side}_N{N}_theta{theta}.parquet"
 
 def params_dir(pair: str) -> Path:
     return (data_root() / "knn" / "params" / tag_ctx.label_tag() /

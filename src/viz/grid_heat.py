@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 import os, sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import tag_ctx
 
 import numpy as np
 import pandas as pd
@@ -20,12 +21,16 @@ import streamlit as st
 ROOT = Path("data/knn/grids")
 PAIR = "USDJPY"  # could expose as selector if you trade multiple pairs
 
-# -----------------------------------------------------------------------------
-# Discover grid files:   window_* / week_*.npy  two levels deep
-# -----------------------------------------------------------------------------
-grid_files = sorted((ROOT / PAIR).rglob("week_*.npy"))
+st.sidebar.markdown("### Select run")
+label_tag = st.sidebar.text_input("Label tag",  value=tag_ctx.label_tag())
+feat_tag  = st.sidebar.text_input("Feature tag", value=tag_ctx.feat_tag())
+knn_tag   = st.sidebar.text_input("KNN tag",     value=tag_ctx.knn_tag())
+
+root = Path("data/knn/grids") / label_tag / feat_tag / knn_tag / PAIR
+grid_files = sorted(root.rglob("week_*.npy"))
+
 if not grid_files:
-    st.error("No grid .npy files found. Run knn_gridsearch first.")
+    st.warning(f"No grid files under {root}")
     st.stop()
 
 meta_rows = []

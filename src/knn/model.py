@@ -23,16 +23,17 @@ class KNNModel:
         self._labels = df[["buyPL", "sellPL"]].values.astype(float)
 
     # -------------------------------------- score helper -
-    def _edge_side(self, pl: np.ndarray) -> float:
-        """Compute normalised vote margin for ONE side."""
-        L = self.pl_lim
-        if L == 0:                              # legacy: any positive counts
-            y = np.where(pl > 0,  1,
-                np.where(pl < 0, -1, 0))
-        else:                                   # three-way win / draw / loss
-            y = np.where(pl >  L,  1,
-                np.where(pl < -L, -1, 0))
-        return ( (y == 1).sum() - (y == -1).sum() ) / self.k
+    def _tally_side(self, pl: np.ndarray) -> tuple[int,int,int,float]:
+        """Return (wins, draws, losses, edge) for one side."""
+        L = self.pl_lim if self.pl_lim is not None else 0.0
+        win  = pl >  L
+        loss = pl < -L
+        draw = ~(win | loss)
+        w = int(win.sum())
+        l = int(loss.sum())
+        d = self.k - w - l
+        edge = (w - l) / self.k          # ∈ [-1, +1]
+        return w, d, l, edge
 
     # ------------------------------------------ scores --
     def scores(self, query) -> dict[str, float] | None:
@@ -42,13 +43,14 @@ class KNNModel:
         dist, idx = self._tree.query([query], k=self.k)
         dist = dist[0]
 
-        # CV gap guard
         cv = dist.std(ddof=0) / dist.mean()
-        if self.gamma != 0 and cv > self.gamma:
-            return None
-
         rows = self._labels[idx[0]]
-        edge_buy  = self._edge_side(rows[:, 0])   # use buyPL only
-        edge_sell = self._edge_side(rows[:, 1])   # use sellPL only
 
-        return {"buy": edge_buy, "sell": edge_sell}
+        w_b, d_b, l_b, edge_b = self._tally_side(rows[:, 0])
+        w_s, d_s, l_s, edge_s = self._tally_side(rows[:, 1])
+
+        return {
+            "cv":  cv,
+            "buy": dict(w=w_b, d=d_b, l=l_b, edge=edge_b),
+            "sell":dict(w=w_s, d=d_s, l=l_s, edge=edge_s),
+        }        
