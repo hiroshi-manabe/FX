@@ -352,13 +352,13 @@ Visual encoding
       red    = –PL_LIMIT hit    (loss)
       grey   = no_hit timeout   (trade exited at TIME_LIMIT)
 
-Layers (toggles)
+Layers
   ▸ TRAIN (blue / grey / red)        small dots  
   ▸ DEV   (blue / grey / red)        large dots  
   ▸ DEV rejected (failed γ or θ)     large ✕ markers (optional)
 
 Additional widgets
-  • θ and γ sliders (match grid-search values).  
+  • θ slider (match grid-search values).  
   • “Show rejection reasons” overlays cv, edge on hover.  
   • Plotly native zoom & selection.
 
@@ -428,7 +428,7 @@ train_weeks = 10 # T
 dev_weeks = 4 # D
 test_weeks = 26 # E
 k = 20 # neighbours in KD-tree
-spacing_buffer = 80000 # ms trade-spacing
+spacing_buffer = 200 # ms trade-spacing
 Ns_week = 5,10,20,40 # rows per TRAIN week
 thetas = 1,2,3,4 # edge thresholds
 gamma = 0.40 # CV rejection
