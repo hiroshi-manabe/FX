@@ -11,7 +11,3 @@ def label_tag() -> str:
 def feat_tag() -> str:
     return _from_env("FX_FEAT_TAG",
                      config.get("pipeline", "quadratic_alg_tag"))
-
-def knn_tag() -> str:
-    return _from_env("FX_KNN_TAG",
-                     config.get("pipeline", "knn_alg_tag"))

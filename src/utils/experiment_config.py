@@ -100,7 +100,7 @@ class ExperimentConfig:
 
         return cls(
             label_tag=tag_ctx.label_tag(),
-            feature_tag=tag_ctx.feat_tag()
+            feature_tag=tag_ctx.feat_tag(),
             train_weeks=int(knn.get("train_weeks", fallback["train_weeks"])),
             dev_weeks=int(knn.get("dev_weeks", fallback["dev_weeks"])),
             test_weeks=int(knn.get("test_weeks", fallback["test_weeks"])),
