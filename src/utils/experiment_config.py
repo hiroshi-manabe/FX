@@ -78,7 +78,7 @@ class ExperimentConfig:
     @classmethod
     def from_ini(cls) -> "ExperimentConfig":
         """Populate from conf/config.ini with internal fallbacks."""
-        ini = configparser.ConfigParser()
+        ini = configparser.ConfigParser(inline_comment_prefixes=(';'))
         ini.read(_ini_path(), encoding="utf-8")
 
         # --- fallbacks used if key missing ----------------------------
