@@ -287,9 +287,12 @@ def main(argv: list[str] | None = None):
     GRID_WEEKS = DEV_WEEKS + TEST_WEEKS
     grid_mondays = mondays[:GRID_WEEKS]          # newest → oldest slice
 
-    if _EXP_NAME is not None:        # exp_main set this module-global
-        tasks = [(pair, m, w, args.force, _EXP_NAME) for (pair, m, w, *_)
-                 in tasks]
+    exp_name = _EXP_NAME   # may be None (legacy CLI)
+    tasks = [
+        (pair, mon, window, args.force, exp_name)
+        for mon in grid_mondays
+        for window in WINDOWS
+    ]
 
     if args.debug:                    # ⇢ serial, ignore -j
         for t in tasks:
