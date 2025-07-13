@@ -250,7 +250,7 @@ def _worker(args):
     if exp_name is None:
         out = path_utils.grid_file(pair, mon, window)
     else:
-        out = exp_grid_file(exp_name, pair, mon, window)
+        out = path_utils.exp_grid_file(exp_name, pair, mon, window)
     if out.exists() and not force:
         return f"skip {mon} w{window}"
     try:
