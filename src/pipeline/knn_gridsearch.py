@@ -26,14 +26,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from utils import config, path_utils, param_utils
+from utils import config, path_utils, param_utils, experiment_config
 from utils.dates import recent_mondays
 from knn.dataset import load_digest
 from knn.threshold import binary_search_r2
 from knn.model import KNNModel  # KD‑tree wrapper lives there for now
 
 # ---------------------------------------------------------------------------
-# Config
+# Defaults for CLI mode (legacy path). These constants will be **dynamically
+# overridden** inside exp_main() so we don't duplicate code.
 # ---------------------------------------------------------------------------
 WINDOWS          = param_utils.windows()
 TRAIN_WEEKS      = config.get("knn", "train_weeks", int)
@@ -220,14 +221,21 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 df_dev_vis = pd.DataFrame(dev_rows)
                 df_vis = pd.concat([df_train_vis, df_dev_vis], ignore_index=True)
 
-                vis_dir = path_utils.vis_dir(pair, monday, window)
-                vis_dir.mkdir(parents=True, exist_ok=True)
-                vis_file = path_utils.vis_file(pair, monday, window, side, N, theta)
-                df_vis.to_parquet(vis_file, compression="zstd")
-
-                trade_dir = path_utils.trade_dir(pair, monday, window)
-                trade_dir.mkdir(parents=True, exist_ok=True)
-                trade_file = path_utils.trade_file(pair, monday, window, side, N, theta)
+                # choose path set according to caller (legacy vs experiment)
+                if _EXP_NAME is None:
+                    vis_dir  = path_utils.vis_dir(pair, monday, window)
+                    trade_dir = path_utils.trade_dir(pair, monday, window)
+                    vis_file  = path_utils.vis_file(pair, monday, window,
+                                                    side, N, theta)
+                    trade_file = path_utils.trade_file(pair, monday, window,
+                                                       side, N, theta)
+                else:
+                    vis_dir  = path_utils.exp_vis_dir(_EXP_NAME, pair, monday, window)
+                    trade_dir = path_utils.exp_trades_dir(_EXP_NAME, pair, monday, window)
+                    vis_file  = path_utils.exp_vis_file(_EXP_NAME, pair, monday, window,
+                                                        side, N, theta)
+                    trade_file = path_utils.exp_trade_file(_EXP_NAME, pair, monday, window,
+                                                           side, N, theta)
                 cols = ["entry_ms", "exit_ms", "pl"]
                 pd.DataFrame(trade_rows, columns=cols).to_parquet(
                     trade_file, compression="zstd"
@@ -238,8 +246,11 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
 # ---------------------------------------------------------------------------
 
 def _worker(args):
-    pair, mon, window, force = args
-    out = path_utils.grid_file(pair, mon, window)
+    pair, mon, window, force, exp_name = args
+    if exp_name is None:
+        out = path_utils.grid_file(pair, mon, window)
+    else:
+        out = exp_grid_file(exp_name, pair, mon, window)
     if out.exists() and not force:
         return f"skip {mon} w{window}"
     try:
@@ -276,8 +287,9 @@ def main(argv: list[str] | None = None):
     GRID_WEEKS = DEV_WEEKS + TEST_WEEKS
     grid_mondays = mondays[:GRID_WEEKS]          # newest → oldest slice
 
-    tasks = [(pair, mon, window, args.force)
-             for mon in grid_mondays for window in WINDOWS]
+    if _EXP_NAME is not None:        # exp_main set this module-global
+        tasks = [(pair, m, w, args.force, _EXP_NAME) for (pair, m, w, *_)
+                 in tasks]
 
     if args.debug:                    # ⇢ serial, ignore -j
         for t in tasks:
@@ -286,6 +298,54 @@ def main(argv: list[str] | None = None):
         with cf.ProcessPoolExecutor(max_workers=args.jobs) as pool:
             for msg in pool.map(_worker, tasks, chunksize=1):
                 print(msg)
+
+# ---------------------------------------------------------------------------
+#  EXP-mode entry point (called by exp_runner.py)
+# ---------------------------------------------------------------------------
+
+_EXP_NAME = None        # module-global flag set by exp_main()
+
+def exp_main(cfg: experiment_config.ExperimentConfig,
+             exp_dir: Path,
+             cli) -> int:
+    """Entry invoked by pipeline.exp_runner."""
+    global WINDOWS, TRAIN_WEEKS, DEV_WEEKS, TEST_WEEKS
+    global K, SPACING_MS, NS, THETAS, MIN_TRADES, GAMMA, PL_LIMIT
+    global _EXP_NAME
+
+    # Override module constants from cfg
+    WINDOWS      = param_utils.windows()          # still driven by ini
+    TRAIN_WEEKS  = cfg.train_weeks
+    DEV_WEEKS    = cfg.dev_weeks
+    TEST_WEEKS   = cfg.test_weeks
+    K            = cfg.k
+    SPACING_MS   = cfg.spacing_ms
+    NS           = cfg.Ns_week
+    THETAS       = cfg.thetas
+    GAMMA        = cfg.gamma
+    MIN_TRADES   = 5                   # could also be cfg field
+    PL_LIMIT     = config.get("pipeline", "pl_limit", float)
+
+    _EXP_NAME = exp_dir.name
+
+    # Re-use legacy CLI parser to interpret --pair/--weeks/--jobs/--force
+    argv = []
+    if getattr(cli, "pair", None):
+        argv += ["--pair", cli.pair]
+    if getattr(cli, "weeks", None):
+        argv += ["--weeks", str(cli.weeks)]
+    if getattr(cli, "jobs", None):
+        argv += ["--jobs", str(cli.jobs)]
+    if getattr(cli, "debug", False):
+        argv.append("--debug")
+    if getattr(cli, "force", False):
+        argv.append("--force")
+
+    try:
+        main(argv)         # reuse existing CLI flow
+        return 0
+    finally:
+        _EXP_NAME = None   # reset for safety
 
 if __name__ == "__main__":
     main()
