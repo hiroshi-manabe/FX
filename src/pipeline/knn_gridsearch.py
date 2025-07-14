@@ -236,6 +236,9 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                                                         side, N, theta)
                     trade_file = path_utils.exp_trade_file(_EXP_NAME, pair, monday, window,
                                                            side, N, theta)
+                vis_dir.mkdir(parents=True, exist_ok=True)
+                df_vis.to_parquet(vis_file, compression="zstd")
+                trade_dir.mkdir(parents=True, exist_ok=True)
                 cols = ["entry_ms", "exit_ms", "pl"]
                 pd.DataFrame(trade_rows, columns=cols).to_parquet(
                     trade_file, compression="zstd"
