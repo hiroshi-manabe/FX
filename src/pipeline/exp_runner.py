@@ -47,9 +47,12 @@ _DRIVER_KEYS = {
 def _parse_cli(argv: List[str] | None = None) -> Tuple[argparse.Namespace, Dict[str, str]]:
     """Return (known_args, override_dict)."""
     ap = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    ap.add_argument("--exp", required=True, help="experiment name (directory)")
-    ap.add_argument("--start", required=True, choices=list(STAGE_TO_MODULE),
+    ap.add_argument("--exp", help="experiment name (directory)")
+    ap.add_argument("--start", choices=list(STAGE_TO_MODULE),
                     help="stage to run")
+    ap.add_argument("--clone", nargs=2, metavar=("SRC", "DST"),
+                    help="clone experiments/SRC -> experiments/DST and exit")
+    
     # common passthrough flags for legacy stage CLIs --------------------
     ap.add_argument("--pair",  default="USDJPY")
     ap.add_argument("--weeks", type=int,  default=80)
@@ -86,8 +89,13 @@ def _ensure_config(exp_dir: Path,
                    allow_edit: bool) -> ExperimentConfig:
     """Create (if new) or load existing config.yaml."""
     if exp_dir.exists():
-        cfg = ExperimentConfig.load(exp_dir)
-        if overrides and not allow_edit:
+        cfg = ExperimentConfig.load(exp_dir, allow_dirty=allow_edit)
+        if allow_edit:
+            if overrides:
+                cfg.override(overrides)
+            cfg.freeze(exp_dir, overwrite=True)          # << always re-hash
+            print(f"[exp_runner] config updated (new sha {cfg.sha1})")
+        elif overrides:
             print("[exp_runner] Note: experiment exists; CLI overrides ignored.")
         return cfg
 
@@ -120,7 +128,24 @@ def _call_legacy_stage(module_name: str,
 def main(argv: List[str] | None = None):
     ns, overrides = _parse_cli(argv)
 
+    # ---- clone-only mode -------------------------------------------
+    if ns.clone:
+        src, dst = ns.clone
+        src_dir, dst_dir = exp_root(src), exp_root(dst)
+        if dst_dir.exists():
+            sys.exit(f"[clone] Destination {dst} already exists.")
+        import shutil
+        shutil.copytree(src_dir, dst_dir)
+        cfg = ExperimentConfig.load(dst_dir)     # recompute SHA
+        cfg.freeze(dst_dir, overwrite=True)
+        print(f"[clone] Copied {src} ➜ {dst}.  Now edit config.yaml as needed.")
+        return
+
+    if not ns.exp or not ns.start:
+        sys.exit("Either use --clone or provide both --exp and --start")
+
     exp_dir = exp_root(ns.exp)
+
     cfg = _ensure_config(exp_dir, overrides, ns.edit_config)
 
     if ns.dry_run:

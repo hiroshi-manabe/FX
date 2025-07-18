@@ -60,7 +60,7 @@ class ExperimentConfig:
 
     # k-NN hyper-parameters
     k: int
-    Ns_week: List[int] = field(default_factory=list)
+    Ns: List[int] = field(default_factory=list)
     thetas: List[int] = field(default_factory=list)
     gamma: float = 0.40
     spacing_ms: int = 80_000
@@ -89,7 +89,7 @@ class ExperimentConfig:
             "dev_weeks": 4,
             "test_weeks": 26,
             "k": 20,
-            "Ns_week": "5,10,20,40",
+            "Ns": "50,100,200,400",
             "thetas": "1,2,3,4",
             "gamma": 0.40,
             "spacing_buffer": 80_000,
@@ -105,7 +105,7 @@ class ExperimentConfig:
             dev_weeks=int(knn.get("dev_weeks", fallback["dev_weeks"])),
             test_weeks=int(knn.get("test_weeks", fallback["test_weeks"])),
             k=int(knn.get("k", fallback["k"])),
-            Ns_week=_parse_int_list(knn.get("Ns_week", fallback["Ns_week"])),
+            Ns=_parse_int_list(knn.get("Ns", fallback["Ns"])),
             thetas=_parse_int_list(knn.get("thetas", fallback["thetas"])),
             gamma=float(knn.get("gamma", fallback["gamma"])),
             spacing_ms=int(knn.get("spacing_buffer", fallback["spacing_buffer"])),
@@ -149,7 +149,9 @@ class ExperimentConfig:
     # public API
     # ------------------------------------------------------------------
 
-    def freeze(self, exp_dir: str | pathlib.Path) -> None:
+    def freeze(self,
+               exp_dir: str | pathlib.Path,
+               overwrite: bool = False) -> None:
         """Write experiments/<name>/config.yaml.  Abort if content differs."""
         exp_dir = pathlib.Path(exp_dir)
         exp_dir.mkdir(parents=True, exist_ok=True)
@@ -158,7 +160,7 @@ class ExperimentConfig:
         if not self.sha1:
             self.sha1 = self._compute_sha1()
 
-        if yml.exists():
+        if yml.exists() and not overwrite:
             loaded = ExperimentConfig.load(exp_dir)
             if loaded.sha1 != self.sha1:
                 raise RuntimeError(
@@ -172,7 +174,9 @@ class ExperimentConfig:
     # -------------
 
     @classmethod
-    def load(cls, exp_dir: str | pathlib.Path) -> "ExperimentConfig":
+    def load(cls,
+             exp_dir: str | pathlib.Path,
+             allow_dirty: bool = False) -> "ExperimentConfig":
         """Resume an existing experiment; validate SHA."""
         exp_dir = pathlib.Path(exp_dir)
         yml = exp_dir / "config.yaml"
@@ -185,7 +189,7 @@ class ExperimentConfig:
         cfg = cls(**{k: data[k] for k in data if k != "sha1"})
         cfg.sha1 = data.get("sha1", "")
 
-        if cfg._compute_sha1() != cfg.sha1:
+        if not allow_dirty and cfg._compute_sha1() != cfg.sha1:
             raise RuntimeError(f"Hash mismatch in {yml}; file may be edited.")
         return cfg
 

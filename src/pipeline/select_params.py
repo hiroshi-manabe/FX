@@ -109,7 +109,7 @@ def exp_main(cfg: experiment_config.ExperimentConfig,
     TRAIN_WEEKS  = cfg.train_weeks
     DEV_WEEKS    = cfg.dev_weeks
     TEST_WEEKS   = cfg.test_weeks
-    NS           = cfg.Ns_week
+    NS           = cfg.Ns
     THETAS       = cfg.thetas
 
     _EXP_NAME = exp_dir.name

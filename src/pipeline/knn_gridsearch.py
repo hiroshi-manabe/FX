@@ -250,6 +250,8 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
 
 def _worker(args):
     pair, mon, window, force, exp_name = args
+    global _EXP_NAME
+    _EXP_NAME = exp_name
     if exp_name is None:
         out = path_utils.grid_file(pair, mon, window)
     else:
@@ -326,7 +328,7 @@ def exp_main(cfg: experiment_config.ExperimentConfig,
     TEST_WEEKS   = cfg.test_weeks
     K            = cfg.k
     SPACING_MS   = cfg.spacing_ms
-    NS           = cfg.Ns_week
+    NS           = cfg.Ns
     THETAS       = cfg.thetas
     GAMMA        = cfg.gamma
     MIN_TRADES   = 5                   # could also be cfg field
