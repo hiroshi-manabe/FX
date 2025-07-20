@@ -102,7 +102,7 @@ def exp_trade_file(
     window: int,
     side: str,
     N: int,
-    theta: float,
+    theta: int,
 ) -> Path:
     return exp_trades_dir(exp, pair, monday, window) / f"{side}_N{N}_theta{theta}.parquet"
 
@@ -120,7 +120,7 @@ def exp_vis_file(
     window: int,
     side: str,
     N: int,
-    theta: float,
+    theta: int,
 ) -> Path:
     return exp_vis_dir(exp, pair, monday, window) / f"{side}_N{N}_theta{theta}.parquet"
 
@@ -180,7 +180,7 @@ def vis_dir(pair: str, monday_date: str, window: int) -> Path:
         / f"week_{monday_date}"
     )
 
-def vis_file(pair: str, monday_date: str, window: int, side: str, N: int, theta: float) -> Path:
+def vis_file(pair: str, monday_date: str, window: int, side: str, N: int, theta: int) -> Path:
     return vis_dir(pair, monday_date, window) / f"{side}_N{N}_theta{theta}.parquet"
 
 def params_dir(pair: str) -> Path:
