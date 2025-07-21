@@ -1,61 +1,78 @@
-#!/usr/bin/env python3
-# src/viz/knn_scatter.py  –  window-aware scatter with no-hit + reject layers
-#
-# Shows (a, b) points coloured by trade outcome for a single (week, window,
-# side, N, θ) parquet produced by knn_gridsearch.  Enhancements:
-#   • Grey points  = trade executed but |PL| < PL-limit (time-out exit)
-#   • Optional faint-grey dots = DEV candidates that failed θ (“rejects”)
-# Everything else (dynamic window discovery, tag selectors) remains as before.
-# -----------------------------------------------------------------------------
-
+# -------------------------------------------------------------------------
+# Imports & helpers
+# -------------------------------------------------------------------------
 from pathlib import Path
 import re, os, sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(Path(__file__).resolve().parents[1])   # add src/ to PYTHONPATH
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from utils import tag_ctx
 
-# -----------------------------------------------------------------------------
-# Sidebar – choose run context (defaults come from last pipeline run)
-# -----------------------------------------------------------------------------
+from utils import param_utils, path_utils, experiment_config, tag_ctx
+
+# -------------------------------------------------------------------------
+# 1. Sidebar – choose SOURCE first
+# -------------------------------------------------------------------------
 with st.sidebar:
-    label_tag   = st.text_input("Label tag",  value=tag_ctx.label_tag())
-    feat_tag    = st.text_input("Feature tag", value=tag_ctx.feat_tag())
-    knn_tag     = st.text_input("KNN tag",     value=tag_ctx.knn_tag())
-    show_rejects = st.checkbox("Show DEV rejects (score < θ)", value=False)
+    MODE = st.radio("Data source", ["experiment", "legacy"])
 
-# -----------------------------------------------------------------------------
-# Locate all parquet files under the chosen context
-# -----------------------------------------------------------------------------
-ROOT = Path("data/knn/viz") / label_tag / feat_tag / knn_tag
-PARQUETS = sorted(ROOT.rglob("*.parquet"))
+    if MODE == "experiment":
+        # pick experiment → pair → week root
+        EXP_ROOT = path_utils.EXPERIMENTS_ROOT
+        exps = sorted([p.name for p in EXP_ROOT.iterdir() if p.is_dir()])
+        exp_name = st.selectbox("Experiment", exps)
+
+        cfg = experiment_config.ExperimentConfig.load(EXP_ROOT / exp_name)
+
+        PAIRS = sorted((EXP_ROOT / exp_name / "grids").iterdir())
+        pair = st.selectbox("Pair", [p.name for p in PAIRS])
+
+        root = path_utils.exp_vis_dir(exp_name, pair, "DUMMY", 0).parents[2]   # …/viz/<pair>
+        show_rejects = st.checkbox("Show DEV rejects (score < θ)", value=False)
+        label_tag = cfg.label_tag
+
+    else:  # legacy
+        label_tag = st.text_input("Label tag",  value=tag_ctx.label_tag())
+        feat_tag  = st.text_input("Feature tag", value=tag_ctx.feat_tag())
+        knn_tag   = st.text_input("KNN tag",     value="knn_v1")
+        show_rejects = st.checkbox("Show DEV rejects (score < θ)", value=False)
+
+        pair_root = Path("data/knn/viz") / label_tag / feat_tag / knn_tag
+        PAIRS = sorted(p.name for p in pair_root.iterdir() if p.is_dir())
+        pair = st.selectbox("Pair", PAIRS)
+
+        root = pair_root / pair
+        cfg  = None   # not used in legacy mode
+
+# -------------------------------------------------------------------------
+# 2. Locate parquet files under selected tree
+# -------------------------------------------------------------------------
+PARQUETS = sorted(root.rglob("*.parquet"))
 if not PARQUETS:
-    st.error(f"No parquets found under {ROOT}")
+    st.error(f"No parquets found under {root}")
     st.stop()
 
-# Build a catalogue for Streamlit selectors
+# -------------------------------------------------------------------------
+# 3. Build catalogue → Streamlit selectors
+# -------------------------------------------------------------------------
 meta_rows = []
 for p in PARQUETS:
-    stem = p.stem                         # e.g. buy_N30_theta15
-    mN   = re.search(r"_N(\d+)",     stem)
-    mT   = re.search(r"_theta(\d+)", stem)
+    stem   = p.stem                    # buy_N30_theta15
+    mN     = re.search(r"_N(\d+)", stem)
+    mT     = re.search(r"_theta(\d+)", stem)
     meta_rows.append({
         "path":   p,
-        "week":   p.parts[-3].split("_", 1)[1],        # week_YYYY-MM-DD
-        "window": p.parts[-2].split("_", 1)[1],        # window_W
-        "side":   stem.split("_", 1)[0],               # buy / sell
+        "week":   p.parts[-3].split("_", 1)[1],
+        "window": p.parts[-2].split("_", 1)[1],
+        "side":   stem.split("_", 1)[0],
         "N":      mN.group(1)  if mN  else "?",
         "theta":  mT.group(1) if mT else "?",
     })
 meta = pd.DataFrame(meta_rows)
 
-# -----------------------------------------------------------------------------
-# Streamlit selectors (week → window → side → N → θ)
-# -----------------------------------------------------------------------------
 week   = st.selectbox("Week",   sorted(meta["week"].unique()))
 window = st.selectbox("Window", sorted(meta.query("week==@week")["window"].unique()))
 side   = st.selectbox("Side",   sorted(meta.query("week==@week and window==@window")["side"].unique()))

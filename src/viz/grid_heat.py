@@ -6,27 +6,46 @@
 # Plotly heat‑map for any (week, window, side, metric).
 # -----------------------------------------------------------------------------
 
-import re
-from pathlib import Path
 import os, sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import tag_ctx
-
+from pathlib import Path
+sys.path.append(Path(__file__).resolve().parents[1])
+from utils import path_utils, experiment_config
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-# Root folder where knn_gridsearch saves its metric cubes
-ROOT = Path("data/knn/grids")
-PAIR = "USDJPY"  # could expose as selector if you trade multiple pairs
+# -----------------------------------------------------------------------------
+# Choose data source
+# -----------------------------------------------------------------------------
 
-st.sidebar.markdown("### Select run")
-label_tag = st.sidebar.text_input("Label tag",  value=tag_ctx.label_tag())
-feat_tag  = st.sidebar.text_input("Feature tag", value=tag_ctx.feat_tag())
-knn_tag   = st.sidebar.text_input("KNN tag",     value=tag_ctx.knn_tag())
+MODE = st.sidebar.radio("Source", ["experiment", "legacy"])
 
-root = Path("data/knn/grids") / label_tag / feat_tag / knn_tag / PAIR
+if MODE == "experiment":
+    exp_root = path_utils.EXPERIMENTS_ROOT
+    exps = sorted([p.name for p in exp_root.iterdir() if p.is_dir()])
+    exp_name = st.sidebar.selectbox("Experiment", exps)
+    cfg = experiment_config.ExperimentConfig.load(exp_root / exp_name)
+    PAIR = st.sidebar.selectbox("Pair", sorted(
+        [p.name for p in (exp_root/exp_name/"grids").iterdir() if p.is_dir()]
+    ))
+
+    root = path_utils.exp_grids_dir(exp_name, PAIR, window=0).parents[1]  # …/grids/<PAIR>
+    Ns      = cfg.Ns
+    THETAS  = cfg.thetas
+else:
+    from utils import tag_ctx, param_utils
+    label_tag = tag_ctx.label_tag()
+    feat_tag  = tag_ctx.feat_tag()
+    knn_tag   = tag_ctx.knn_tag()
+
+    pair_root = Path("data/knn/grids") / label_tag / feat_tag / knn_tag
+    PAIR = st.sidebar.selectbox("Pair",
+                                sorted(p.name for p in pair_root.iterdir() if p.is_dir()))
+    root = pair_root / PAIR
+    Ns      = param_utils.N_all_effective()
+    THETAS  = param_utils.thetas()
+
 grid_files = sorted(root.rglob("week_*.npy"))
 
 if not grid_files:
@@ -62,18 +81,13 @@ grids = np.load(sel_path, allow_pickle=True).item()
 Z = grids[side][:, :, metric_idx].astype(float)
 Z[Z == 0] = np.nan  # mark unreachable cells
 
-# Axis labels – pull from config so they stay consistent
-from utils import config
-NS_WEEK = config.getlist("knn", "Ns_week", int)
-THETAS = config.getlist("knn", "thetas", float)
-
 # -----------------------------------------------------------------------------
 # Build heat‑map  – wide aspect + fixed colour scale (−15 … +15)
 # -----------------------------------------------------------------------------
 fig = px.imshow(
     Z,
     x=THETAS,
-    y=NS_WEEK,
+    y=Ns,
     color_continuous_scale="RdBu",
     origin="lower",
     aspect="auto",
@@ -81,7 +95,7 @@ fig = px.imshow(
 )
 
 # Make the figure wider (≈ 5× as wide as tall)
-rows = len(NS_WEEK)
+rows = len(Ns)
 cols = len(THETAS)
 base_height = 400
 fig.update_layout(
