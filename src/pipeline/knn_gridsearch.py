@@ -246,7 +246,6 @@ def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_n
                     trade_file = path_utils.exp_trade_file(exp_name, pair, monday, window,
                                                            side, N, theta)
                 vis_dir.mkdir(parents=True, exist_ok=True)
-                print(theta, df_dev_vis["passed_theta"].sum())
                 df_vis.to_parquet(vis_file, compression="zstd")
                 trade_dir.mkdir(parents=True, exist_ok=True)
                 cols = ["entry_ms", "exit_ms", "pl"]
