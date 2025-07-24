@@ -53,6 +53,8 @@ class ExperimentConfig:
     label_tag: str
     feature_tag: str
 
+    pl_limit: int
+
     # rolling windows
     train_weeks: int
     dev_weeks: int
@@ -63,7 +65,8 @@ class ExperimentConfig:
     Ns: List[int] = field(default_factory=list)
     thetas: List[int] = field(default_factory=list)
     gamma: float = 0.40
-    spacing_ms: int = 80_000
+    spacing_ms: int = 200
+    min_trades: int = 5
 
     # bookkeeping
     created_at: str = field(
@@ -85,6 +88,7 @@ class ExperimentConfig:
         fallback = {
             "label_tag": "pl30",
             "feature_tag": "quad_v1",
+            "pl_limit" : 30,
             "train_weeks": 10,
             "dev_weeks": 4,
             "test_weeks": 26,
@@ -92,7 +96,8 @@ class ExperimentConfig:
             "Ns": "50,100,200,400",
             "thetas": "1,2,3,4",
             "gamma": 0.40,
-            "spacing_buffer": 80_000,
+            "spacing_ms": 200,
+            "min_trades" : 5,
         }
 
         p = ini["pipeline"] if "pipeline" in ini else {}
@@ -101,6 +106,7 @@ class ExperimentConfig:
         return cls(
             label_tag=tag_ctx.label_tag(),
             feature_tag=tag_ctx.feat_tag(),
+            pl_limit=int(p.get("pl_limit", fallback["pl_limit"])),
             train_weeks=int(knn.get("train_weeks", fallback["train_weeks"])),
             dev_weeks=int(knn.get("dev_weeks", fallback["dev_weeks"])),
             test_weeks=int(knn.get("test_weeks", fallback["test_weeks"])),
@@ -108,7 +114,8 @@ class ExperimentConfig:
             Ns=_parse_int_list(knn.get("Ns", fallback["Ns"])),
             thetas=_parse_int_list(knn.get("thetas", fallback["thetas"])),
             gamma=float(knn.get("gamma", fallback["gamma"])),
-            spacing_ms=int(knn.get("spacing_buffer", fallback["spacing_buffer"])),
+            spacing_ms=int(knn.get("spacing_ms", fallback["spacing_ms"])),
+            min_trades=int(knn.get("min_trades", fallback["min_trades"])),
         )
 
     # ------------------------------------------------------------------

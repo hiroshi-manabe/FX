@@ -28,6 +28,7 @@ import pandas as pd
 
 from utils import config, path_utils, param_utils, experiment_config
 from utils.dates import recent_mondays
+from utils.experiment_config import ExperimentConfig
 from knn.dataset import load_digest
 from knn.threshold import binary_search_r2
 from knn.model import KNNModel  # KD‑tree wrapper lives there for now
@@ -36,18 +37,7 @@ from knn.model import KNNModel  # KD‑tree wrapper lives there for now
 # Defaults for CLI mode (legacy path). These constants will be **dynamically
 # overridden** inside exp_main() so we don't duplicate code.
 # ---------------------------------------------------------------------------
-WINDOWS          = param_utils.windows()
-TRAIN_WEEKS      = config.get("knn", "train_weeks", int)
-DEV_WEEKS        = config.get("knn", "dev_weeks", int)
-TEST_WEEKS       = config.get("knn", "test_weeks", int)
-K                = config.get("knn", "k", int)
-SPACING_MS       = config.get("knn", "spacing_buffer", int)
-NS               = param_utils.N_all_effective()
-THETAS           = param_utils.thetas()
-MIN_TRADES       = config.get("knn", "min_trades_dev", int)
 CPU = os.cpu_count() or 4
-GAMMA            = config.get("knn", "gamma", float)
-PL_LIMIT         = config.get("pipeline", "pl_limit", float)
 # ---------------------------------------------------------------------------
 
 def concat_train(pair: str, mondays: list[str], window: int) -> pd.DataFrame:
@@ -64,19 +54,38 @@ def concat_train(pair: str, mondays: list[str], window: int) -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True).sort_values("time_ms")
 
 
-def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
+def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_name: str) -> dict[str, np.ndarray]:
     """Grid‑search on one DEV Monday / window.
 
     * tau is tuned **only on TRAIN rows** (length TRAIN_WEEKS).
     * Κ‑D tree is built from those TRAIN rows that survivetau + spacing.
     * DEV rows (this week) are evaluated with that tree.
     """
+    if cfg:                     # experiment mode
+        Ns          = cfg.Ns
+        thetas      = cfg.thetas
+        gamma       = cfg.gamma
+        spacing_ms  = cfg.spacing_ms
+        train_weeks = cfg.train_weeks
+        K           = cfg.k
+        min_trades  = cfg.min_trades
+        pl_limit    = cfg.pl_limit
+    else:                       # legacy
+        Ns          = param_utils.N_all_effective()
+        thetas      = param_utils.thetas()
+        gamma       = config.get("knn", "gamma", float)
+        spacing_ms  = config.get("knn", "spacing_ms", int)
+        train_weeks = config.get("knn", "train_weeks", int)
+        K           = config.get("knn", "k", int)
+        min_trades  = config.get("knn", "min_trades", int)
+        pl_limit    = config.get("pipeline", "pl_limit", int)
+
     monday_dt = dt.date.fromisoformat(monday)
 
     # --- TRAIN & DEV Monday lists ----------------------------------------
     train_mondays = [
         (monday_dt - dt.timedelta(weeks=w)).isoformat()
-        for w in range(TRAIN_WEEKS, 0, -1)
+        for w in range(train_weeks, 0, -1)
     ]
 
     # --------------------------------------------------------------------
@@ -111,7 +120,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
     # --------------------------------------------------------------------
     METRICS = ("trades", "mean", "std", "tstat", "tau")
     grids = {
-        side: np.zeros((len(NS), len(THETAS), len(METRICS)), dtype=float)
+        side: np.zeros((len(Ns), len(thetas), len(METRICS)), dtype=float)
         for side in ("buy", "sell")
     }
 
@@ -123,11 +132,11 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
         pl_col   = f"{side}PL"
 
         # -------- iterate N targets --------------------------------------
-        for iN, N in enumerate(NS):
+        for iN, N in enumerate(Ns):
             # tau search on TRAIN only
             try:
                 tau, kept_idx = binary_search_r2(
-                    df_train, N, SPACING_MS, side
+                    df_train, N, spacing_ms, side
                 )
             except ValueError:
                 continue            # cannot hit N
@@ -138,7 +147,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
             if df_kept.empty:
                 continue
 
-            model = KNNModel(k=K, pl_limit=PL_LIMIT)
+            model = KNNModel(k=K, pl_limit=pl_limit)
             model.fit(df_kept)
 
             # -------- iterate theta values -------------------------------
@@ -154,7 +163,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                         passed_theta=True, passed=True)
             )
 
-            for jT, theta in enumerate(THETAS):
+            for jT, theta in enumerate(thetas):
                 trades = 0
                 pls: list[float] = []
                 dev_rows = []
@@ -164,12 +173,12 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 for r in df_dev.itertuples(index=False):
                     if r.r2 < tau:                                       # poor fit
                         continue
-                    if r.time_ms < last_exit + SPACING_MS:               # spacing
+                    if r.time_ms < last_exit + spacing_ms:               # spacing
                         continue
 
                     sc = model.scores((r.a, r.b))
                     cv_val        = sc["cv"]
-                    passed_gamma  = cv_val <= GAMMA
+                    passed_gamma  = cv_val <= gamma
 
                     # defaults if γ failed
                     w = d = l = 0
@@ -209,7 +218,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                     pls.append(getattr(r, pl_col))
                     last_exit = getattr(r, exit_col)
 
-                if trades >= MIN_TRADES:
+                if trades >= min_trades:
                     mean = float(np.mean(pls))
                     std  = float(np.std(pls, ddof=0))
                     tstat = 0.0 if std == 0 else mean / (std / math.sqrt(trades))
@@ -222,7 +231,7 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                 df_vis = pd.concat([df_train_vis, df_dev_vis], ignore_index=True)
 
                 # choose path set according to caller (legacy vs experiment)
-                if _EXP_NAME is None:
+                if cfg is None:
                     vis_dir  = path_utils.vis_dir(pair, monday, window)
                     trade_dir = path_utils.trade_dir(pair, monday, window)
                     vis_file  = path_utils.vis_file(pair, monday, window,
@@ -230,13 +239,14 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
                     trade_file = path_utils.trade_file(pair, monday, window,
                                                        side, N, theta)
                 else:
-                    vis_dir  = path_utils.exp_vis_dir(_EXP_NAME, pair, monday, window)
-                    trade_dir = path_utils.exp_trades_dir(_EXP_NAME, pair, monday, window)
-                    vis_file  = path_utils.exp_vis_file(_EXP_NAME, pair, monday, window,
+                    vis_dir  = path_utils.exp_vis_dir(exp_name, pair, monday, window)
+                    trade_dir = path_utils.exp_trades_dir(exp_name, pair, monday, window)
+                    vis_file  = path_utils.exp_vis_file(exp_name, pair, monday, window,
                                                         side, N, theta)
-                    trade_file = path_utils.exp_trade_file(_EXP_NAME, pair, monday, window,
+                    trade_file = path_utils.exp_trade_file(exp_name, pair, monday, window,
                                                            side, N, theta)
                 vis_dir.mkdir(parents=True, exist_ok=True)
+                print(theta, df_dev_vis["passed_theta"].sum())
                 df_vis.to_parquet(vis_file, compression="zstd")
                 trade_dir.mkdir(parents=True, exist_ok=True)
                 cols = ["entry_ms", "exit_ms", "pl"]
@@ -249,17 +259,15 @@ def gridsearch(pair: str, monday: str, window: int) -> dict[str, np.ndarray]:
 # ---------------------------------------------------------------------------
 
 def _worker(args):
-    pair, mon, window, force, exp_name = args
-    global _EXP_NAME
-    _EXP_NAME = exp_name
-    if exp_name is None:
+    pair, mon, window, force, cfg, exp_name = args
+    if cfg is None:
         out = path_utils.grid_file(pair, mon, window)
     else:
         out = path_utils.exp_grid_file(exp_name, pair, mon, window)
     if out.exists() and not force:
         return f"skip {mon} w{window}"
     try:
-        grids = gridsearch(pair, mon, window)
+        grids = gridsearch(pair, mon, window, cfg, exp_name)
         out.parent.mkdir(parents=True, exist_ok=True)
         np.save(out, grids)
         return f"grid {mon} w{window}"
@@ -277,10 +285,22 @@ def main(argv: list[str] | None = None):
                     help="run single-threaded for easier debugging")
     ap.add_argument("-j", "--jobs", type=int, default=min(4, CPU),
                     help="parallel workers (default 4 or #cores)")
+    ap.add_argument("--exp", help="experiment folder (under experiments/)")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args(argv)
-
     pair = args.pair.upper()
+
+    if args.exp:
+        cfg = experiment_config.ExperimentConfig.load(
+                path_utils.exp_root(args.exp))
+        windows    = param_utils.windows()  # still global helper
+        dev_weeks  = cfg.dev_weeks
+        test_weeks = cfg.test_weeks
+    else:               # legacy
+        cfg = None
+        windows    = param_utils.windows()
+        dev_weeks  = config.get("knn", "dev_weeks", int)
+        test_weeks = config.get("knn", "test_weeks", int)
 
     # Build a list of Mondays *including* the most-recent one (w=0).
     mondays = recent_mondays(args.weeks)   # newest-first list
@@ -289,14 +309,13 @@ def main(argv: list[str] | None = None):
     # or the TRAIN slice for a future TEST.  That is:
     #     DEV_WEEKS (for parameter picking)  +
     #     TEST_WEEKS (latest TEST span)
-    GRID_WEEKS = DEV_WEEKS + TEST_WEEKS
-    grid_mondays = mondays[:GRID_WEEKS]          # newest → oldest slice
+    grid_weeks = dev_weeks + test_weeks
+    grid_mondays = mondays[:grid_weeks]          # newest → oldest slice
 
-    exp_name = _EXP_NAME   # may be None (legacy CLI)
     tasks = [
-        (pair, mon, window, args.force, exp_name)
+        (pair, mon, window, args.force, cfg, args.exp)
         for mon in grid_mondays
-        for window in WINDOWS
+        for window in windows
     ]
 
     if args.debug:                    # ⇢ serial, ignore -j
@@ -311,33 +330,14 @@ def main(argv: list[str] | None = None):
 #  EXP-mode entry point (called by exp_runner.py)
 # ---------------------------------------------------------------------------
 
-_EXP_NAME = None        # module-global flag set by exp_main()
-
 def exp_main(cfg: experiment_config.ExperimentConfig,
              exp_dir: Path,
              cli) -> int:
     """Entry invoked by pipeline.exp_runner."""
-    global WINDOWS, TRAIN_WEEKS, DEV_WEEKS, TEST_WEEKS
-    global K, SPACING_MS, NS, THETAS, MIN_TRADES, GAMMA, PL_LIMIT
-    global _EXP_NAME
-
-    # Override module constants from cfg
-    WINDOWS      = param_utils.windows()          # still driven by ini
-    TRAIN_WEEKS  = cfg.train_weeks
-    DEV_WEEKS    = cfg.dev_weeks
-    TEST_WEEKS   = cfg.test_weeks
-    K            = cfg.k
-    SPACING_MS   = cfg.spacing_ms
-    NS           = cfg.Ns
-    THETAS       = cfg.thetas
-    GAMMA        = cfg.gamma
-    MIN_TRADES   = 5                   # could also be cfg field
-    PL_LIMIT     = config.get("pipeline", "pl_limit", float)
-
-    _EXP_NAME = exp_dir.name
 
     # Re-use legacy CLI parser to interpret --pair/--weeks/--jobs/--force
     argv = []
+    argv += ["--exp", exp_dir.name]
     if getattr(cli, "pair", None):
         argv += ["--pair", cli.pair]
     if getattr(cli, "weeks", None):
@@ -349,11 +349,8 @@ def exp_main(cfg: experiment_config.ExperimentConfig,
     if getattr(cli, "force", False):
         argv.append("--force")
 
-    try:
-        main(argv)         # reuse existing CLI flow
-        return 0
-    finally:
-        _EXP_NAME = None   # reset for safety
+    main(argv)         # reuse existing CLI flow
+    return 0
 
 if __name__ == "__main__":
     main()

@@ -20,7 +20,7 @@ from utils.dates import recent_mondays
 
 # ----------------------------------------------------------------------------
 PAIR       = config.get("pipeline", "currency_pair")
-SPACING_MS = config.get("knn", "spacing_buffer", int)
+SPACING_MS = config.get("knn", "spacing_ms", int)
 TEST_WEEKS = config.get("knn", "test_weeks", int)
 _EXP_NAME  = None
 

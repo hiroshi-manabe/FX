@@ -25,7 +25,7 @@ DEV_WEEKS        = config.get("knn", "dev_weeks", int)
 TEST_WEEKS       = config.get("knn", "test_weeks", int)
 NS               = param_utils.N_all_effective()
 THETAS           = param_utils.thetas()
-MIN_TRADES       = config.get("knn", "min_trades_dev", int)
+MIN_TRADES       = config.get("knn", "min_trades", int)
 # ---------------------------------------------------------------------
 
 def weighted_best(dev_paths: list[Path], side: str):
