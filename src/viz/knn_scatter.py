@@ -85,6 +85,13 @@ file_path = meta.query(
 
 df = pd.read_parquet(file_path)
 
+# ------------------------------------------------------------------
+# exclude DEV rejects unless user asked to show them
+# ------------------------------------------------------------------
+reject = (df.get("passed", True) == False) & (df["set"] == "DEV")
+if not show_rejects:
+    df = df[~reject]
+
 # -----------------------------------------------------------------------------
 # Derive outcome classes and marker appearance
 # -----------------------------------------------------------------------------

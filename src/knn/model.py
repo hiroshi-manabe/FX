@@ -26,13 +26,13 @@ class KNNModel:
     def _tally_side(self, pl: np.ndarray) -> tuple[int,int,int,float]:
         """Return (wins, draws, losses, edge) for one side."""
         L = self.pl_lim if self.pl_lim is not None else 0.0
-        win  = pl >  L
-        loss = pl < -L
+        win  = pl >=  L
+        loss = pl <= -L
         draw = ~(win | loss)
         w = int(win.sum())
         l = int(loss.sum())
         d = self.k - w - l
-        edge = (w - l) / self.k          # ∈ [-1, +1]
+        edge = w - l
         return w, d, l, edge
 
     # ------------------------------------------ scores --

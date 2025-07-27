@@ -164,8 +164,7 @@ class ExperimentConfig:
         exp_dir.mkdir(parents=True, exist_ok=True)
         yml = exp_dir / "config.yaml"
 
-        if not self.sha1:
-            self.sha1 = self._compute_sha1()
+        self.sha1 = self._compute_sha1()
 
         if yml.exists() and not overwrite:
             loaded = ExperimentConfig.load(exp_dir)
