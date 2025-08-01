@@ -129,7 +129,7 @@ fig = px.scatter(
     x="a", y="b",
     color="class",
     color_discrete_map=colour_map,
-    hover_data=["time_ms", "pl", "set", "r2", "tau", "w", "l", "d", "cv"],
+    hover_data=["time_ms", "pl", "set", "r2", "tau", "w", "l", "d", "passed_hull"],
     size="msize",
     size_max=4,
 )

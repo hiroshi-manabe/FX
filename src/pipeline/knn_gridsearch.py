@@ -64,7 +64,6 @@ def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_n
     if cfg:                     # experiment mode
         Ns          = cfg.Ns
         thetas      = cfg.thetas
-        gamma       = cfg.gamma
         spacing_ms  = cfg.spacing_ms
         train_weeks = cfg.train_weeks
         K           = cfg.k
@@ -73,7 +72,6 @@ def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_n
     else:                       # legacy
         Ns          = param_utils.N_all_effective()
         thetas      = param_utils.thetas()
-        gamma       = config.get("knn", "gamma", float)
         spacing_ms  = config.get("knn", "spacing_ms", int)
         train_weeks = config.get("knn", "train_weeks", int)
         K           = config.get("knn", "k", int)
@@ -159,7 +157,7 @@ def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_n
                                  f"{side}NoHit": "no_hit"})
                 .assign(set="TRAIN", tau=tau,
                         w=np.nan, d=np.nan, l=np.nan,
-                        cv=np.nan, passed_gamma=True,
+                        passed_hull=True,
                         passed_theta=True, passed=True)
             )
 
@@ -177,20 +175,19 @@ def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_n
                         continue
 
                     sc = model.scores((r.a, r.b))
-                    cv_val        = sc["cv"]
-                    passed_gamma  = cv_val <= gamma
+                    passed_hull  = sc["passed_hull"]
 
                     # defaults if γ failed
                     w = d = l = 0
                     edge = -np.inf
                     passed_theta = False
 
-                    if passed_gamma:
+                    if passed_hull:
                         stat = sc[side]          # dict w,d,l,edge
                         w, d, l, edge = stat["w"], stat["d"], stat["l"], stat["edge"]
                         passed_theta = edge >= theta
 
-                    passed = passed_gamma and passed_theta
+                    passed = passed_hull and passed_theta
 
                     # always log DEV row
                     dev_rows.append({
@@ -199,8 +196,8 @@ def gridsearch(pair: str, monday: str, window: int, cfg: ExperimentConfig, exp_n
                         "pl": getattr(r, pl_col),
                         "no_hit": getattr(r, f"{side}NoHit"),
                         "set": "DEV", "tau": tau,
-                        "cv": cv_val, "w": w, "d": d, "l": l,
-                        "passed_gamma": passed_gamma,
+                        "w": w, "d": d, "l": l,
+                        "passed_hull": passed_hull,
                         "passed_theta": passed_theta,
                         "passed": passed,
                     })

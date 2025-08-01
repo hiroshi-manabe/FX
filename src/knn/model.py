@@ -3,16 +3,16 @@
 ###############################################################################
 
 from sklearn.neighbors import KDTree
+from scipy.spatial import ConvexHull
 import numpy as np
 import pandas as pd
 
 class KNNModel:
     """KD‑tree on (a,b) with helper to return buy/sell tallies."""
 
-    def __init__(self, k: int = 25, gamma: float = 0.35,
+    def __init__(self, k: int = 25,
                  pl_limit: float | None = None):
         self.k      = k
-        self.gamma  = gamma
         self.pl_lim = pl_limit
         self._tree:   KDTree | None = None
         self._labels: np.ndarray | None = None   # buyPL , sellPL
@@ -35,22 +35,34 @@ class KNNModel:
         edge = w - l
         return w, d, l, edge
 
+    # -------------------------------- convex-hull containment predicate
+    @staticmethod
+    def _origin_outside_hull(points: np.ndarray) -> bool:
+        """True iff (0,0) lies strictly outside convex hull of *points*."""
+        hull = ConvexHull(points)
+        # Each row of hull.equations is n·x + c == 0 (outward normal n).
+        # Plug x = (0,0) to test containment.
+        return np.any(hull.equations[:, -1] > 1e-12)
+
     # ------------------------------------------ scores --
     def scores(self, query) -> dict[str, float] | None:
         if self._tree is None:
             raise RuntimeError("Model not fitted")
 
-        dist, idx = self._tree.query([query], k=self.k)
-        dist = dist[0]
+        _, idx = self._tree.query([query], k=self.k)
+        idx = idx[0]
 
-        cv = dist.std(ddof=0) / dist.mean()
-        rows = self._labels[idx[0]]
+        data = np.asarray(self._tree.data)
+        nbr_xy = data[idx] - query   # centre at origin
+        outside = self._origin_outside_hull(nbr_xy)
 
+        labels = np.asarray(self._labels)
+        rows   = labels[idx]
         w_b, d_b, l_b, edge_b = self._tally_side(rows[:, 0])
         w_s, d_s, l_s, edge_s = self._tally_side(rows[:, 1])
 
         return {
-            "cv":  cv,
+            "passed_hull": not outside,
             "buy": dict(w=w_b, d=d_b, l=l_b, edge=edge_b),
             "sell":dict(w=w_s, d=d_s, l=l_s, edge=edge_s),
         }        

@@ -5,13 +5,13 @@ exp_runner.py  – experiment-level driver for k-NN stages
 Usage examples
 --------------
 
-# create new experiment “gamma025” with two overrides, run grid-search
-python -m pipeline.exp_runner --exp gamma025 \
-        --gamma 0.25 --k 30 \
+# create new experiment "k30" with an override, run grid-search
+python -m pipeline.exp_runner --exp k30 \
+        --k 30 \
         --start knn_gridsearch --pair USDJPY --weeks 80
 
 # resume the same experiment, run select_params
-python -m pipeline.exp_runner --exp gamma025 --start select_params
+python -m pipeline.exp_runner --exp k30 --start select_params
 """
 
 from __future__ import annotations
@@ -68,7 +68,6 @@ def _parse_cli(argv: List[str] | None = None) -> Tuple[argparse.Namespace, Dict[
     # accept *any* extra --key value or --flag --------------------------
     known, unknown = ap.parse_known_args(argv)
 
-    # unknown list → dict {"--gamma": "0.3", "--k": "25"}
     overrides = {}
     i = 0
     while i < len(unknown):

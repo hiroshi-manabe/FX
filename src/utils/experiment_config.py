@@ -64,7 +64,6 @@ class ExperimentConfig:
     k: int
     Ns: List[int] = field(default_factory=list)
     thetas: List[int] = field(default_factory=list)
-    gamma: float = 0.40
     spacing_ms: int = 200
     min_trades: int = 5
 
@@ -95,7 +94,6 @@ class ExperimentConfig:
             "k": 20,
             "Ns": "50,100,200,400",
             "thetas": "1,2,3,4",
-            "gamma": 0.40,
             "spacing_ms": 200,
             "min_trades" : 5,
         }
@@ -113,7 +111,6 @@ class ExperimentConfig:
             k=int(knn.get("k", fallback["k"])),
             Ns=_parse_int_list(knn.get("Ns", fallback["Ns"])),
             thetas=_parse_int_list(knn.get("thetas", fallback["thetas"])),
-            gamma=float(knn.get("gamma", fallback["gamma"])),
             spacing_ms=int(knn.get("spacing_ms", fallback["spacing_ms"])),
             min_trades=int(knn.get("min_trades", fallback["min_trades"])),
         )
@@ -208,7 +205,7 @@ if __name__ == "__main__":
     import tempfile, pprint
 
     tmp_exp = pathlib.Path(tempfile.mkdtemp()) / "demo_exp"
-    cfg = ExperimentConfig.from_ini().override({"gamma": 0.25, "k": 30})
+    cfg = ExperimentConfig.from_ini().override({"k": 30})
     cfg.freeze(tmp_exp)
     print("Reloaded config:")
     pprint.pprint(ExperimentConfig.load(tmp_exp).as_dict())
