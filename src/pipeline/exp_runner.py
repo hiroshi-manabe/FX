@@ -21,6 +21,7 @@ import importlib
 import os
 import subprocess
 import sys
+sys.path.append(Path(__file__).resolve().parents[1])   # add src/ to PYTHONPATH
 from pathlib import Path
 from typing import Dict, List, Tuple
 
