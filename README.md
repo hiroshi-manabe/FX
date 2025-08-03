@@ -256,8 +256,8 @@ Decision filters inside grid-search (DEV phase)
 Outputs stored for visualisation
   For every DEV tick the viz parquet records:
     time_ms, a, b, r2, pl, no_hit,
-    w, d, l, nh, edge, cv,
-    passed_gamma, passed_theta, passed (final trade flag)
+    w, d, l, nh, edge,
+    passed_hull, passed_theta, passed (final trade flag)
 
 (End of section 6)
 
