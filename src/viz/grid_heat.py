@@ -8,7 +8,7 @@
 
 import os, sys
 from pathlib import Path
-sys.path.append(Path(__file__).resolve().parents[1])
+sys.path.append(str(Path(__file__).resolve().parents[1]))   # add src/ to PYTHONPATH
 from utils import path_utils, experiment_config
 import numpy as np
 import pandas as pd

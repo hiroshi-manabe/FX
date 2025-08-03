@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
 # -------------------------------------------------------------------------
 # Imports & helpers
 # -------------------------------------------------------------------------
 from pathlib import Path
 import re, os, sys
-sys.path.append(Path(__file__).resolve().parents[1])   # add src/ to PYTHONPATH
+sys.path.append(str(Path(__file__).resolve().parents[1]))   # add src/ to PYTHONPATH
 
 import numpy as np
 import pandas as pd

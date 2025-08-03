@@ -17,7 +17,7 @@ python src/pipeline/run_pipeline.py --start fit_quadratic --end filter_digest \
 
 from pathlib import Path
 import argparse, os, subprocess, sys, shutil
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(str(Path(__file__).resolve().parents[1]))   # add src/ to PYTHONPATH
 from datetime import date, timedelta
 from utils import path_utils, param_utils
 
